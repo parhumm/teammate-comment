@@ -44,6 +44,19 @@ function bundle(): { body: string; etag: string } | null {
   return cached
 }
 
+/**
+ * A compressing proxy rewrites the ETag it hands out so the compressed and
+ * uncompressed bodies cannot collide in a shared cache — Caddy appends `-gzip`
+ * or `-zstd`. The tag that comes back in `If-None-Match` is therefore not
+ * always the one we issued, so compare on the base tag.
+ *
+ * `W/` marks a weak validator, which is what these effectively are; it is
+ * dropped for the same reason.
+ */
+function stripEncodingSuffix(tag: string): string {
+  return tag.replace(/^W\//, '').replace(/-(?:gzip|zstd|br|deflate)"$/, '"')
+}
+
 app.get(`/w/:key{[${KEY_CHARS}]+\\.js}`, (c) => {
   const file = bundle()
   if (!file) {
@@ -52,9 +65,24 @@ app.get(`/w/:key{[${KEY_CHARS}]+\\.js}`, (c) => {
     })
   }
 
-  if (c.req.header('If-None-Match') === file.etag) return c.body(null, 304)
-
-  return c.body(file.body, 200, {
+  /**
+   * One header set, used by both the 200 and the 304 — they are not allowed to
+   * disagree.
+   *
+   * A 304 is not "an empty reply". RFC 9111 §4.3.4 has the client MERGE these
+   * headers into the copy it already holds, so a field omitted here is left
+   * alone but a field that is WRONG here silently rewrites the cache. Returning
+   * a bare `c.body(null, 304)` sends Hono's default `Content-Type: text/plain`,
+   * which overwrites the stored `application/javascript`; the next load then
+   * serves a plain-text script, and `nosniff` makes the browser refuse to
+   * execute it.
+   *
+   * That failure is genuinely nasty to read: it lands one page load AFTER the
+   * response that caused it, and it alternates, because the blocked load evicts
+   * the entry it just poisoned and the load after that re-fetches cleanly. It
+   * is also invisible to curl, which has no cache and ignores nosniff.
+   */
+  const headers = {
     'Content-Type': 'application/javascript; charset=utf-8',
     // `no-cache` means "revalidate before use", not "do not store". Paired with
     // the ETag, an unchanged bundle costs one conditional request and returns a
@@ -66,7 +94,18 @@ app.get(`/w/:key{[${KEY_CHARS}]+\\.js}`, (c) => {
     'Cache-Control': 'no-cache',
     'Access-Control-Allow-Origin': '*',
     ETag: file.etag,
-  })
+  }
+
+  // A conditional request may carry a list, and a proxy that compressed the
+  // response will have suffixed the tag it handed out (Caddy appends `-gzip` /
+  // `-zstd`). Match against the parsed list, ignoring any such suffix, so the
+  // revalidation still costs one bodyless 304 rather than a full re-download.
+  const inm = c.req.header('If-None-Match')
+  if (inm && inm.split(',').some((tag) => stripEncodingSuffix(tag.trim()) === file.etag)) {
+    return c.body(null, 304, headers)
+  }
+
+  return c.body(file.body, 200, headers)
 })
 
 /**
