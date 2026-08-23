@@ -296,8 +296,9 @@ TC_HOST=you@your-vps ./deploy.sh
 ```
 
 That builds the widget locally, rsyncs `package.json`, `package-lock.json`, `shared/`, `server/`
-and `widget/`, runs `npm ci --omit=dev`, and restarts the service. The remote install is four
-packages; Vite and TypeScript never reach the server.
+and `widget/`, runs `npm ci --omit=dev`, and restarts the service. The remote install is three
+third-party packages — Hono, its node adapter, and Preact — plus the two workspace links npm
+counts alongside them. Vite and TypeScript never reach the server.
 
 Confirm it came up:
 
