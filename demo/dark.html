@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Range anchoring — Notes</title>
+<style>
+  /* A second host page with a completely different design from index.html, and
+     an explicit dark `color-scheme`. Together they test the two things that
+     matter about theming: that the widget picks the right adaptation from the
+     host's own declaration, and that it keeps one identity across two very
+     different pages rather than trying to blend into either. */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: oklch(0.19 0.015 250);
+    color: oklch(0.88 0.012 250);
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+  }
+  .shell { max-width: 74ch; margin: 0 auto; padding: 64px 24px 120px; }
+  .kicker {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: oklch(0.62 0.10 200);
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 12px; }
+  .sub { color: oklch(0.66 0.02 250); margin: 0 0 40px; font-size: 17px; }
+  h2 { font-size: 19px; margin: 40px 0 12px; letter-spacing: -0.01em; }
+  p { margin: 0 0 18px; }
+  pre {
+    background: oklch(0.155 0.015 250);
+    border: 1px solid oklch(0.28 0.02 250);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: oklch(0.84 0.02 250);
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; }
+  p code, li code {
+    background: oklch(0.25 0.02 250);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  ol { padding-left: 20px; margin: 0 0 18px; }
+  li { margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 18px; }
+  th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid oklch(0.28 0.02 250); }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: oklch(0.62 0.02 250); }
+  a { color: oklch(0.72 0.12 200); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="kicker">Notes / Anchoring</div>
+  <h1>Finding the same text twice</h1>
+  <p class="sub">A durable reference to a span of text in a document that will not hold still.</p>
+
+  <p>The problem looks trivial until you try it. You have a selection now, and you want to find the same words later, in a document that has been edited, re-rendered, translated by a framework, or reordered by a layout change. Character offsets alone will not survive any of that. Neither will a CSS selector, which breaks the moment a wrapper element appears.</p>
+
+  <h2>Flatten first</h2>
+
+  <p>Every workable approach starts by flattening the document to a single string of visible text, along with a map back to the nodes that produced each region. Once you are working in offset space, the rest of the problem becomes arithmetic rather than tree traversal.</p>
+
+  <pre><code>const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+let text = '', nodes = []
+for (let n; (n = walker.nextNode()); ) {
+  nodes.push({ node: n, start: text.length })
+  text += n.nodeValue
+}</code></pre>
+
+  <p>Skip <code>script</code>, <code>style</code>, and anything belonging to your own interface. A tool that annotates its own chrome is a tool that has lost track of what the document is.</p>
+
+  <h2>The resolution ladder</h2>
+
+  <p>Store the quote, a hundred characters either side of it, and the offsets. On the way back, try each rung in order and stop at the first that holds:</p>
+
+  <ol>
+    <li>The stored offsets still contain exactly the stored quote. Nothing moved.</li>
+    <li>The quote is findable between its stored neighbours. Something moved, but the neighbourhood survived.</li>
+    <li>The quote appears somewhere, once. Take it.</li>
+    <li>The quote appears several times. Take the occurrence nearest the original offset.</li>
+    <li>Nothing matches. The anchor is orphaned.</li>
+  </ol>
+
+  <table>
+    <thead><tr><th>Change</th><th>Rung that catches it</th></tr></thead>
+    <tbody>
+      <tr><td>Nothing edited</td><td>1</td></tr>
+      <tr><td>Paragraph added above</td><td>2</td></tr>
+      <tr><td>Wrapper element introduced</td><td>1 or 2</td></tr>
+      <tr><td>Surrounding sentence rewritten</td><td>3 or 4</td></tr>
+      <tr><td>The quoted text deleted</td><td>orphan</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Orphans are a state, not an error</h2>
+
+  <p>The last rung is the one most implementations get wrong, usually by silently dropping the anchor. But a conversation attached to deleted text still happened, and the people in it still need to see it and close it out. An orphan belongs in the interface, labelled and reachable, not in a log file.</p>
+
+  <p>The temptation at this point is to add fuzzy matching and recover a few more cases. It is worth resisting. Similarity scoring buys a handful of recoveries in exchange for behaviour nobody can predict, and a highlight landing confidently on the wrong sentence is a worse outcome than an orphan the reader can see and judge for themselves.</p>
+
+  <p><a href="/index.html">&larr; Back to the light-mode article</a></p>
+</div>
+
+<script src="__WIDGET_SRC__"></script>
+</body>
+</html>

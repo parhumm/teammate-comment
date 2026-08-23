@@ -1,0 +1,17 @@
+{
+  "name": "@tc/widget",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch"
+  },
+  "dependencies": {
+    "preact": "^10.25.3"
+  },
+  "devDependencies": {
+    "vite": "^6.0.5",
+    "@preact/preset-vite": "^2.9.3",
+    "typescript": "^5.7.2"
+  }
+}

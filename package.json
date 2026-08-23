@@ -1,0 +1,11 @@
+{
+  "name": "teammate-comment",
+  "private": true,
+  "type": "module",
+  "workspaces": ["server", "widget"],
+  "scripts": {
+    "dev": "npm run build:widget && npm run dev --workspace=server",
+    "build:widget": "npm run build --workspace=widget",
+    "start": "npm run start --workspace=server"
+  }
+}

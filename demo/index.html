@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Weight of a Line — Field Notes</title>
+<style>
+  /* This page deliberately looks nothing like the widget. It is somebody
+     else's website: warm paper, a serif, an editorial measure. If the comment
+     layer reads as part of this design, the widget has failed its own rule
+     about being an instrument laid over a document rather than part of it. */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: oklch(0.975 0.012 85);
+    color: oklch(0.26 0.018 60);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 19px;
+    line-height: 1.62;
+  }
+  .masthead {
+    border-bottom: 1px solid oklch(0.86 0.02 75);
+    padding: 28px 24px;
+    margin-bottom: 56px;
+  }
+  .masthead div {
+    max-width: 68ch;
+    margin: 0 auto;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: oklch(0.52 0.03 60);
+  }
+  article { max-width: 68ch; margin: 0 auto; padding: 0 24px 120px; }
+  h1 {
+    font-size: 46px;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+  .standfirst {
+    font-size: 21px;
+    color: oklch(0.45 0.025 60);
+    margin: 0 0 44px;
+    font-style: italic;
+  }
+  h2 {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: oklch(0.48 0.03 55);
+    margin: 52px 0 14px;
+  }
+  p { margin: 0 0 22px; }
+  blockquote {
+    margin: 32px 0;
+    padding-left: 22px;
+    border-left: 2px solid oklch(0.80 0.04 75);
+    font-style: italic;
+    color: oklch(0.38 0.025 60);
+  }
+  pre {
+    background: oklch(0.945 0.014 85);
+    border: 1px solid oklch(0.88 0.018 80);
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; }
+  figure { margin: 36px 0; }
+  figure div {
+    height: 220px;
+    border-radius: 6px;
+    background:
+      repeating-linear-gradient(
+        135deg,
+        oklch(0.88 0.04 70) 0 14px,
+        oklch(0.92 0.03 80) 14px 28px
+      );
+  }
+  figcaption {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 13px;
+    color: oklch(0.52 0.03 60);
+    margin-top: 10px;
+  }
+  ul { margin: 0 0 22px; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .nav {
+    max-width: 68ch;
+    margin: 0 auto;
+    padding: 0 24px 64px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+  }
+  .nav a { color: oklch(0.42 0.09 250); }
+</style>
+</head>
+<body>
+
+<header class="masthead"><div>Field Notes &middot; Issue 14</div></header>
+
+<article>
+  <h1>The weight of a line</h1>
+  <p class="standfirst">Every rule you draw on a page is a claim about what belongs together. Most of them are wrong.</p>
+
+  <p>There is a moment in the life of every interface where someone reaches for a border. The content has grown past the point where proximity alone explains it, and a line seems like the obvious remedy. It is cheap, it is unambiguous, and it makes the disorder look deliberate. This is exactly why it is so often the wrong move.</p>
+
+  <p>A border is not a neutral act. It asserts that everything inside it is one thing and everything outside it is another. When that claim is true, the line disappears into the reading and does its work invisibly. When it is false, the reader spends a small amount of effort on every glance reconciling what the line says against what the content actually means. That effort is almost never conscious, which is precisely what makes it expensive.</p>
+
+  <h2>Proximity does more work than you think</h2>
+
+  <p>Before reaching for a rule, it is worth asking what whitespace alone would accomplish. Grouping through spacing is weaker than grouping through enclosure, but weakness is a feature when the relationships are themselves soft. Not everything that belongs near something else belongs <em>with</em> it, and space can express that gradient in a way a border cannot.</p>
+
+  <blockquote>The strongest grouping mechanism available is the one that leaves no mark. If you can say it with distance, say it with distance.</blockquote>
+
+  <p>The practical test is simple. Remove the border and look at the result for ten seconds. If nothing has become harder to understand, the border was decoration. If something has genuinely come apart, ask whether increasing the surrounding space repairs it. Only when both of those fail has the line earned its place.</p>
+
+  <h2>Nested enclosure is always a mistake</h2>
+
+  <p>Whatever the merits of a single container, a container inside a container is a different proposition. The inner boundary must now compete with the outer one, and the reader has to hold two simultaneous claims about grouping in mind. The usual result is that both become noise and neither is trusted.</p>
+
+  <pre><code>/* the shape of the problem */
+.card { border: 1px solid; padding: 16px; }
+.card .card { border: 1px solid; padding: 12px; }  /* nothing is grouped now */</code></pre>
+
+  <p>The fix is rarely a thinner inner border or a lighter colour. It is recognising that one of the two levels is not real, and deleting it. In practice the inner one usually survives, because it is closer to the content and therefore closer to the truth.</p>
+
+  <figure>
+    <div role="img" aria-label="Diagram of nested rectangles"></div>
+    <figcaption>Two boundaries competing for the same claim. Neither wins.</figcaption>
+  </figure>
+
+  <h2>Where lines genuinely earn their place</h2>
+
+  <p>None of this is an argument against rules altogether. There are cases where a line is the correct and honest answer, and recognising them matters as much as recognising the failures:</p>
+
+  <ul>
+    <li>Separating repeated items of equal weight, where a list needs rhythm rather than enclosure.</li>
+    <li>Marking a genuine change of register, such as the boundary between a document and the tools acting on it.</li>
+    <li>Establishing a baseline in dense data, where the eye needs a track to follow across a wide row.</li>
+  </ul>
+
+  <p>What these have in common is that the line is describing something that is already true. It is not creating the grouping; it is confirming it. That is the difference between a rule that reads as inevitable and one that reads as applied.</p>
+
+  <h2>The accent problem</h2>
+
+  <p>A related failure is the coloured edge: a thick stripe down one side of a block, usually intended to signal importance or category. It has the same defect as any decorative border, with an additional one on top. Colour is a scarce resource in an interface, and spending it on an edge means it is not available for anything that carries meaning.</p>
+
+  <p>If a block matters more than its neighbours, the honest mechanisms are position, size, and weight. If it belongs to a category, the honest mechanism is a label. A stripe communicates neither of those clearly, and it consumes the one signal you cannot easily replace.</p>
+
+  <h2>A closing test</h2>
+
+  <p>Design every boundary as though you will have to defend it. Not in a review, where confidence carries the day, but to a reader six months from now who has never seen the file and has no reason to be generous. If the only available defence is that it looked unfinished without one, the line was never doing the work you thought it was.</p>
+</article>
+
+<nav class="nav">
+  <a href="/dark.html">Read this page in dark mode &rarr;</a>
+</nav>
+
+<script src="__WIDGET_SRC__"></script>
+</body>
+</html>
