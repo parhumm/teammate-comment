@@ -1,182 +1,277 @@
-# Deploying
+# Deploying to teammate.jaan.to
 
-One Node process, one SQLite file, behind a Cloudflare Tunnel. No reverse proxy, no
-certificate to manage, no inbound ports open except SSH.
+One Node process, one SQLite file, behind a Cloudflare Tunnel. No reverse proxy, no certificate
+to manage, no inbound ports open except SSH.
 
-**HTTPS is not optional.** The widget is embedded on HTTPS pages, so a plain-HTTP API is
-blocked as mixed content and never loads. The tunnel provides it.
+**HTTPS is not optional.** The widget is embedded on HTTPS pages, so a plain-HTTP API is blocked
+as mixed content and never loads. The tunnel provides it.
 
-Substitute your own hostname for `comments.jaan.to` throughout.
+Follow the steps in order. Steps 1 to 3 are once; step 4 is every deploy.
+
+| | |
+|---|---|
+| Service URL | `https://teammate.jaan.to` |
+| Code on the VPS | `/opt/teammate` |
+| Data on the VPS | `/var/lib/teammate` |
+| systemd unit | `teammate` |
+| Listens on | `127.0.0.1:8787` (never exposed directly) |
 
 ---
 
-## 1. VPS, once
+## Step 1 — VPS base
 
-Node 24 so type stripping needs no flag and `node:sqlite` is stable.
+Node 24 so type stripping needs no flag. `sqlite3` is only for backups.
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs sqlite3
-
-sudo mkdir -p /opt/tc /var/lib/tc
-sudo chown -R "$USER:$USER" /opt/tc /var/lib/tc
+node --version    # expect v24.x
 ```
 
-Data lives in `/var/lib/tc`, deliberately outside `/opt/tc`, so `rsync --delete` on deploy can
-never reach the database.
+```bash
+sudo mkdir -p /opt/teammate /var/lib/teammate
+sudo chown -R "$USER:$USER" /opt/teammate /var/lib/teammate
+```
 
-### `/etc/tc.env`
+Data lives in `/var/lib/teammate`, deliberately outside `/opt/teammate`, so the `rsync --delete`
+on every deploy can never reach the database.
 
-```ini
+---
+
+## Step 2 — Config and service
+
+### `/etc/teammate.env`
+
+```bash
+sudo tee /etc/teammate.env > /dev/null <<'EOF'
 NODE_ENV=production
 PORT=8787
-TC_PUBLIC_ORIGIN=https://comments.jaan.to
-TC_DB=/var/lib/tc/comments.db
-TC_SECRET_FILE=/var/lib/tc/.secret
+TC_PUBLIC_ORIGIN=https://teammate.jaan.to
+TC_DB=/var/lib/teammate/comments.db
+TC_SECRET_FILE=/var/lib/teammate/.secret
+EOF
+sudo chmod 600 /etc/teammate.env
 ```
 
 `TC_PUBLIC_ORIGIN` is the one that fails silently. Without it the panel builds snippets from
-`http://localhost:8787` and hands you a script tag that will never load. Nothing errors; the
-widget just never appears.
+`http://localhost:8787` and hands you a script tag that never loads. Nothing errors, the widget
+just never appears.
 
 `NODE_ENV=production` is what makes the session cookie `secure`.
 
-### `/etc/systemd/system/tc.service`
+### `/etc/systemd/system/teammate.service`
 
-```ini
+Replace `YOUR_USER` with your login name (`whoami`).
+
+```bash
+sudo tee /etc/systemd/system/teammate.service > /dev/null <<EOF
 [Unit]
 Description=Teammate Comment
 After=network.target
 
 [Service]
-User=YOUR_USER
-WorkingDirectory=/opt/tc/server
-EnvironmentFile=/etc/tc.env
+User=$(whoami)
+WorkingDirectory=/opt/teammate/server
+EnvironmentFile=/etc/teammate.env
 ExecStart=/usr/bin/node src/index.ts
 Restart=always
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable teammate
 ```
 
-`WorkingDirectory` matters: the widget bundle path resolves relative to it.
+`enable` without `--now`: the unit points at `/opt/teammate/server`, which does not exist until
+the first deploy. Step 4 starts it.
 
-On Node 22.x, `ExecStart` needs `--experimental-strip-types` before the filename. Node 23.6+
-and 24+ need no flag.
+`WorkingDirectory` matters beyond tidiness: the widget bundle path resolves relative to it.
+
+On Node 22.x only, `ExecStart` needs the flag: `/usr/bin/node --experimental-strip-types src/index.ts`.
+Node 23.6+ and 24+ need nothing. If your Node prints an `ExperimentalWarning` for `node:sqlite`,
+it is harmless.
+
+### Passwordless restart for deploys
 
 ```bash
-sudo systemctl daemon-reload && sudo systemctl enable tc
+echo "$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart teammate" \
+  | sudo tee /etc/sudoers.d/teammate > /dev/null
+sudo chmod 440 /etc/sudoers.d/teammate
 ```
+
+The path must be `/usr/bin/systemctl`, which is what `sudo systemctl` resolves to on Ubuntu.
+`/bin/systemctl` will not match and you will be prompted for a password on every deploy.
 
 ---
 
-## 2. Cloudflare Tunnel, once
+## Step 3 — Cloudflare Tunnel
+
+Use the dashboard flow. It creates the DNS record for you and needs no `config.yml`, no
+`cert.pem`, and no credentials-file path to get wrong.
+
+1. Open **[one.dash.cloudflare.com](https://one.dash.cloudflare.com)** → **Networks → Tunnels**
+   → **Create a tunnel** → **Cloudflared**.
+2. Name it `teammate`, then **Save tunnel**.
+3. It shows an install command containing your tunnel token. Run that command on the VPS. It
+   looks like:
+
+   ```bash
+   curl -L --output cloudflared.deb \
+     https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+   && sudo dpkg -i cloudflared.deb \
+   && sudo cloudflared service install eyJhIjoiXXXXXXXX...
+   ```
+
+   On an ARM VPS, swap `amd64` for `arm64` in the URL. Check with `dpkg --print-architecture`.
+
+4. Back in the dashboard, on the **Public Hostname** tab, **Add a public hostname**:
+
+   | Field | Value |
+   |---|---|
+   | Subdomain | `teammate` |
+   | Domain | `jaan.to` |
+   | Path | *(leave empty)* |
+   | Type | `HTTP` |
+   | URL | `localhost:8787` |
+
+   Type is **HTTP**, not HTTPS: the tunnel already encrypts the hop, and the app speaks plain
+   HTTP on loopback.
+
+5. **Save hostname.** The proxied DNS record for `teammate.jaan.to` is created automatically.
 
 ```bash
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cf.deb
-sudo dpkg -i cf.deb
-
-cloudflared tunnel login
-cloudflared tunnel create tc
-cloudflared tunnel route dns tc comments.jaan.to
+sudo systemctl status cloudflared    # expect active (running)
 ```
 
-`/etc/cloudflared/config.yml`, using the UUID printed by `tunnel create`:
-
-```yaml
-tunnel: <UUID>
-credentials-file: /root/.cloudflared/<UUID>.json
-ingress:
-  - hostname: comments.jaan.to
-    service: http://localhost:8787
-  - service: http_status:404
-```
-
-```bash
-sudo cloudflared service install
-sudo systemctl start cloudflared
-```
-
-The DNS record is created for you, proxied, with a valid certificate and nothing to renew.
+Until step 4 the tunnel will return 502, because nothing is listening on 8787 yet. That is
+expected.
 
 ### One Cloudflare setting to confirm
 
 **Speed → Optimization → Rocket Loader: off.** It rewrites script tags, which nulls
-`document.currentScript` — the mechanism the widget uses to recover its project key from its
-own URL. It is off by default; just check it, and check it on any zone hosting a commented
-page, not only this one.
+`document.currentScript` — the mechanism the widget uses to recover its project key from its own
+URL. It is off by default; confirm it, and confirm it on any zone hosting a commented page, not
+only this one.
 
 Leave caching alone. The bundle is served with `Cache-Control: no-cache` plus an ETag, so
-Cloudflare revalidates and deploys propagate immediately. **Never put a "Cache Everything" rule
-on `/w/*`**: embedded sites cannot be asked to re-paste their snippet, so a stale bundle is
-unfixable from their side.
+Cloudflare revalidates and deploys propagate immediately. **Never add a "Cache Everything" rule
+covering `/w/*`**: embedded sites cannot be asked to re-paste their snippet, so a stale bundle
+is unfixable from their side.
 
 ---
 
-## 3. Deploy
+## Step 4 — Deploy
 
-Once, on the server, so restarts need no password (`sudo visudo`):
-
-```
-YOUR_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tc
-```
-
-Then, from your machine, every time:
+From your machine, in the repo:
 
 ```bash
 TC_HOST=you@your-vps ./deploy.sh
 ```
 
-That builds the widget locally, rsyncs `package.json`, `package-lock.json`, `shared/`,
-`server/` and `widget/`, runs `npm ci --omit=dev`, and restarts the service. The remote install
-is four packages; Vite and TypeScript never reach the server.
+That builds the widget locally, rsyncs `package.json`, `package-lock.json`, `shared/`, `server/`
+and `widget/`, runs `npm ci --omit=dev`, and restarts the service. The remote install is four
+packages; Vite and TypeScript never reach the server.
+
+Confirm it came up:
+
+```bash
+ssh you@your-vps systemctl is-active teammate     # expect: active
+curl -sI https://teammate.jaan.to/signin | head -1  # expect: HTTP/2 200
+```
 
 ---
 
-## 4. First run
+## Step 5 — First run
 
-1. Open `https://comments.jaan.to` and create your account.
-2. Create a project. `jaan.to` covers `jaan.to` and every subdomain at any depth, so that is
-   one project. Shared hosts like `pages.dev` or `vercel.app` need their own.
-3. Copy the snippet into any page on that domain.
-4. The project screen flips from `Waiting for first page view` to `Installed` on first load.
+1. Open `https://teammate.jaan.to` and create your account.
+2. Create a project. One domain per project:
+
+   | Commenting on | Project domain |
+   |---|---|
+   | `jaan.to` and every subdomain, any depth | `jaan.to` |
+   | a Cloudflare Pages site | `your-site.pages.dev` |
+   | a Vercel site | `your-app.vercel.app` |
+
+   `jaan.to` alone covers `a.jaan.to` and `a.b.jaan.to`, so that is one project, not several.
+
+3. Copy the snippet and paste it before `</body>` on any page in that domain:
+
+   ```html
+   <script src="https://teammate.jaan.to/w/YOUR_KEY.js"></script>
+   ```
+
+4. Load the page. The project screen flips from `Waiting for first page view` to `Installed`.
+5. Select some text on that page. A **Comment** button appears.
 
 ---
 
-## 5. Verify
+## Step 6 — Verify
 
 In the order things actually go wrong:
 
-1. **The snippet in the panel starts with `https://comments.jaan.to`, not `localhost`.**
-   This is the failure that presents as "the widget is broken" and sends you looking in the
-   wrong place entirely.
-2. On a real page: select text, comment, reload, the comment is still there.
-3. Load that same snippet from a domain not in the project. The widget should say
+1. **The snippet in the panel starts with `https://teammate.jaan.to`, not `localhost`.**
+   This is the failure that presents as "the widget is broken" and sends you looking in entirely
+   the wrong place. If it says localhost, `TC_PUBLIC_ORIGIN` is not reaching the process.
+
+2. On a real page: select text, comment, reload. The comment and its highlight are still there.
+
+3. Load that same snippet from a domain **not** in the project. The widget should say
    `This domain isn't allowed for this project.` rather than failing silently.
-4. `sudo systemctl stop tc`, then reload a commented page. It must render normally with no
-   widget. Our being down must never block the host page.
+
+4. Stop the service and reload a commented page:
+
+   ```bash
+   ssh you@your-vps sudo systemctl stop teammate
+   ```
+
+   The page must render completely normally, just without the widget. Our being down must never
+   block the host page. Then start it again.
+
+5. Bundle caching behaves:
+
+   ```bash
+   curl -sI https://teammate.jaan.to/w/YOUR_KEY.js | grep -i 'cache-control\|etag'
+   ```
+
+   Expect `cache-control: no-cache` and an `etag`.
 
 ```bash
-ssh you@your-vps journalctl -u tc -f
+ssh you@your-vps journalctl -u teammate -f
 ```
 
 ---
 
-## 6. Backup
+## Step 7 — Backup
 
 Everything anyone ever wrote is in one file, and copying a live SQLite database can capture a
-torn WAL. Use SQLite's own online backup, nightly:
+torn WAL. Use SQLite's own online backup. On the VPS, `crontab -e`:
 
 ```
-0 4 * * * sqlite3 /var/lib/tc/comments.db ".backup '/var/lib/tc/backup.db'" && gzip -f /var/lib/tc/backup.db
+0 4 * * * sqlite3 /var/lib/teammate/comments.db ".backup '/var/lib/teammate/backup.db'" && gzip -f /var/lib/teammate/backup.db
 ```
 
-Copy `/var/lib/tc/.secret` somewhere safe once. Losing it only signs everyone out, but it is a
-single small file.
+Copy `/var/lib/teammate/.secret` somewhere safe once. Losing it only signs everyone out, but it
+is a single small file and there is no way to regenerate the old one.
 
-To restore: stop the service, gunzip over `comments.db`, delete any `-wal` and `-shm` siblings,
-start.
+To restore: stop the service, `gunzip` over `comments.db`, delete any `-wal` and `-shm`
+siblings, start.
+
+---
+
+## When something is wrong
+
+| Symptom | Cause |
+|---|---|
+| Snippet shows `localhost` | `TC_PUBLIC_ORIGIN` missing. `sudo systemctl show teammate -p Environment` |
+| `teammate.jaan.to` returns 502 | App is down. `systemctl status teammate`, `journalctl -u teammate -n 50` |
+| Widget never appears, no console error | Rocket Loader on for the **host page's** zone |
+| Widget logs a CORS or 403 error | Page's domain is not in that project |
+| Deploy prompts for a sudo password | sudoers path must be `/usr/bin/systemctl`, not `/bin/systemctl` |
+| `npm ci` fails on the VPS | A workspace manifest is missing; `widget/` must be rsynced whole |
+| Comments vanished after a deploy | `TC_DB` is pointing inside `/opt/teammate`; it must be `/var/lib/teammate` |
 
 ---
 
@@ -187,9 +282,9 @@ Deliberate for a private V1. See [ROADMAP.md](ROADMAP.md).
 - **Signup is open.** Anyone reaching the panel can create their own account and projects. They
   cannot see or touch yours, but the login form has no rate limiting.
 - **Anyone can edit or delete any comment** within a project they can reach.
-- **No password reset.** Recovery is `sqlite3` on the VPS.
+- **No password reset.** Recovery means editing the SQLite file on the VPS.
 - **Shared-suffix domains are broad.** `vercel.app` as a project domain matches every Vercel
-  site, not only yours. The project key ships publicly in the snippet, so prefer a narrower
-  domain where you can.
+  site, not only yours. The project key ships publicly in the snippet, so use the most specific
+  domain you can.
 - The service runs as your own user with no systemd hardening. The tunnel means nothing is
   listening publicly, which is what makes that acceptable here.

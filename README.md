@@ -41,17 +41,19 @@ Create the project with domain `localhost` and both demo pages will be allowed.
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `8787` | Panel and API |
-| `TC_DB` | `../data/comments.db` | SQLite file |
-| `TC_SECRET` | generated into `data/.secret` | Session signing key |
-| `TC_PUBLIC_ORIGIN` | request origin | Origin written into the snippet |
+| `TC_DB` | `../data/comments.db` | SQLite file, relative to the server's cwd |
+| `TC_SECRET_FILE` | `../data/.secret` | Where the session key is generated and kept |
+| `TC_SECRET` | unset | Session key given inline, overrides the file |
+| `TC_PUBLIC_ORIGIN` | the request's own origin | Origin written into the snippet. **Required behind a proxy**, otherwise the panel emits `localhost` snippets that never load. |
+| `NODE_ENV` | unset | `production` makes the session cookie `secure` |
 | `DEMO_PORT` | `5173` | Demo static server |
 
 ---
 
 ## Deploying
 
-See [DEPLOY.md](DEPLOY.md). Short version: a VPS behind a Cloudflare Tunnel, which means no
-reverse proxy, no certificate to manage, and no inbound ports open except SSH.
+See [DEPLOY.md](DEPLOY.md). A VPS behind a Cloudflare Tunnel: no reverse proxy, no certificate
+to manage, and no inbound ports open except SSH.
 
 ```bash
 TC_HOST=you@your-vps ./deploy.sh

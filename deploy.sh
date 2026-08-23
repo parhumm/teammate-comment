@@ -10,8 +10,8 @@
 set -euo pipefail
 
 HOST=${TC_HOST:?set TC_HOST=user@your-vps}
-DEST=${TC_DEST:-/opt/tc}
-SERVICE=${TC_SERVICE:-tc}
+DEST=${TC_DEST:-/opt/teammate}
+SERVICE=${TC_SERVICE:-teammate}
 
 echo "==> building widget"
 npm run build:widget
