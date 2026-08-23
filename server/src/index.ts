@@ -8,6 +8,17 @@ import { panel } from './panel.ts'
 import { KEY_CHARS } from '../../shared/contract.ts'
 
 const PORT = Number(process.env.PORT ?? 8787)
+
+/**
+ * Loopback by default, deliberately.
+ *
+ * `serve()` binds every interface when no hostname is given, which on a VPS
+ * with a public IP puts the panel — and open signup — straight on the internet
+ * on a port nothing is guarding. Behind a reverse proxy the process should only
+ * ever be reachable through the proxy, and in dev localhost is what you want
+ * anyway, so there is no case where the permissive default is the right one.
+ */
+const BIND = process.env.TC_BIND ?? '127.0.0.1'
 const BUNDLE = resolve(process.cwd(), '../widget/dist/widget.js')
 
 const app = new Hono()
@@ -58,9 +69,19 @@ app.get(`/w/:key{[${KEY_CHARS}]+\\.js}`, (c) => {
   })
 })
 
+/**
+ * Liveness only: no auth, no database, no upstream call. A health check that can
+ * block on a dependency stops reporting whether the process is alive and starts
+ * reporting the dependency instead — which is the one thing it must never do.
+ *
+ * Registered before the panel, whose guard redirects every unmatched path to
+ * /signin and would otherwise answer this with a 302.
+ */
+app.get('/healthz', (c) => c.text('ok'))
+
 app.route('/', panel)
 
-serve({ fetch: app.fetch, port: PORT }, (info) => {
-  console.log(`panel   http://localhost:${info.port}`)
-  console.log(`widget  http://localhost:${info.port}/w/<key>.js`)
+serve({ fetch: app.fetch, port: PORT, hostname: BIND }, (info) => {
+  console.log(`panel   http://${BIND}:${info.port}`)
+  console.log(`widget  http://${BIND}:${info.port}/w/<key>.js`)
 })

@@ -1,10 +1,12 @@
 # Deploying to teammate.jaan.to
 
-One Node process, one SQLite file, behind a Cloudflare Tunnel. No reverse proxy, no certificate
-to manage, no inbound ports open except SSH.
+One Node process and one SQLite file, listening on loopback behind something that terminates TLS.
 
 **HTTPS is not optional.** The widget is embedded on HTTPS pages, so a plain-HTTP API is blocked
-as mixed content and never loads. The tunnel provides it.
+as mixed content and never loads.
+
+Step 3 offers two ways to get it. If the box already runs a reverse proxy, use that. If the box is
+empty, a Cloudflare Tunnel is less to set up.
 
 Follow the steps in order. Steps 1 to 3 are once; step 4 is every deploy.
 
@@ -14,7 +16,7 @@ Follow the steps in order. Steps 1 to 3 are once; step 4 is every deploy.
 | Code on the VPS | `/opt/teammate` |
 | Data on the VPS | `/var/lib/teammate` |
 | systemd unit | `teammate` |
-| Listens on | `127.0.0.1:8787` (never exposed directly) |
+| Listens on | `127.0.0.1:8787` (loopback by default; `TC_BIND` overrides) |
 
 ---
 
@@ -46,6 +48,7 @@ on every deploy can never reach the database.
 sudo tee /etc/teammate.env > /dev/null <<'EOF'
 NODE_ENV=production
 PORT=8787
+TC_BIND=127.0.0.1
 TC_PUBLIC_ORIGIN=https://teammate.jaan.to
 TC_DB=/var/lib/teammate/comments.db
 TC_SECRET_FILE=/var/lib/teammate/.secret
@@ -59,23 +62,52 @@ just never appears.
 
 `NODE_ENV=production` is what makes the session cookie `secure`.
 
+`TC_BIND` already defaults to `127.0.0.1`; it is in the file so the binding is stated rather than
+assumed. Set it to `0.0.0.0` only if you genuinely want the process reachable with no proxy in
+front, and only behind a firewall — signup is open, so an exposed port is an open panel. Whatever
+you set, confirm it after the first deploy rather than trusting this table: `ss -ltnp | grep 8787`.
+
 ### `/etc/systemd/system/teammate.service`
 
-Replace `YOUR_USER` with your login name (`whoami`).
+Give the service its own account rather than running it as yours. The deploy user writes
+`/opt/teammate`; the service user only reads it, and owns nothing but the data directory.
 
 ```bash
-sudo tee /etc/systemd/system/teammate.service > /dev/null <<EOF
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin teammate
+sudo chown teammate:teammate /var/lib/teammate
+sudo chmod 750 /var/lib/teammate
+```
+
+```bash
+sudo tee /etc/systemd/system/teammate.service > /dev/null <<'EOF'
 [Unit]
 Description=Teammate Comment
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-User=$(whoami)
+Type=simple
+User=teammate
+Group=teammate
 WorkingDirectory=/opt/teammate/server
 EnvironmentFile=/etc/teammate.env
 ExecStart=/usr/bin/node src/index.ts
 Restart=always
 RestartSec=3
+
+# The process reads its code and writes exactly one directory. Say so.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/teammate
+
+# On a shared box, the unbounded process is the one that takes the box down.
+# MemoryHigh throttles before MemoryMax kills, so pressure shows up as slowness
+# rather than as a Restart=always crash loop.
+MemoryHigh=192M
+MemoryMax=256M
+CPUWeight=50
 
 [Install]
 WantedBy=multi-user.target
@@ -84,6 +116,9 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable teammate
 ```
+
+`ReadWritePaths` must name whatever `TC_DB` and `TC_SECRET_FILE` point at. `ProtectSystem=strict`
+makes everything else read-only, so a wrong path here surfaces as `SQLITE_CANTOPEN` on boot.
 
 `enable` without `--now`: the unit points at `/opt/teammate/server`, which does not exist until
 the first deploy. Step 4 starts it.
@@ -96,6 +131,9 @@ it is harmless.
 
 ### Passwordless restart for deploys
 
+Skip this if you deploy as `root` — `sudo` is already a no-op there, and an extra sudoers file is
+one more thing to get wrong. It is for the case where `TC_HOST` is an unprivileged account.
+
 ```bash
 echo "$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart teammate" \
   | sudo tee /etc/sudoers.d/teammate > /dev/null
@@ -107,7 +145,85 @@ The path must be `/usr/bin/systemctl`, which is what `sudo systemctl` resolves t
 
 ---
 
-## Step 3 — Cloudflare Tunnel
+## Step 3 — HTTPS
+
+Two ways in. Pick one.
+
+**A — the box already has a reverse proxy.** Add a site block to it. Nothing new runs, the
+certificate story is whatever the other sites on that box already use, and rollback is restoring
+one file. This is what `teammate.jaan.to` actually uses.
+
+**B — the box is empty.** A Cloudflare Tunnel needs no open inbound port and no certificate at all.
+
+---
+
+### A — Behind an existing reverse proxy
+
+DNS first: an `A` record for `teammate` pointing at the box's IP. If the zone is on Cloudflare and
+the proxy issues its own certificates, that record must be **DNS-only (grey cloud)** — Let's
+Encrypt's HTTP-01 challenge has to reach the box directly on port 80.
+
+```sh
+dig +short teammate.jaan.to     # the box's IP, not a 104.x/172.x Cloudflare edge IP
+```
+
+Then the site block. Caddy, matching what we run:
+
+```caddyfile
+teammate.jaan.to {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options    "nosniff"
+		Referrer-Policy           "strict-origin-when-cross-origin"
+		X-Robots-Tag              "noindex, nofollow, noarchive, nosnippet"
+		-Server
+	}
+
+	# The app already sets Cache-Control: no-cache plus an ETag on the bundle.
+	# Do not add a max-age here — see the caching note at the end of this step.
+	handle /w/* {
+		reverse_proxy 127.0.0.1:8787
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8787 {
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP         {remote_host}
+		}
+	}
+}
+```
+
+**No `X-Frame-Options: DENY`, deliberately.** If the proxy has a shared security-header snippet it
+applies to every other site, do not import it here without reading it. This host serves a script to
+third-party pages; a blanket header set written for a first-party dashboard is the wrong shape.
+
+Never edit a live proxy config in place. Back it up, validate a staged copy, then swap and reload:
+
+```sh
+sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.$(date +%Y%m%d-%H%M%S)
+sudo cp /etc/caddy/Caddyfile /tmp/Caddyfile.staged
+# append the block above to /tmp/Caddyfile.staged
+caddy validate --adapter caddyfile --config /tmp/Caddyfile.staged
+sudo mv /tmp/Caddyfile.staged /etc/caddy/Caddyfile
+sudo systemctl reload caddy      # reload, never restart
+```
+
+Then re-check the **other** sites on that box before you look at this one. A config that breaks a
+neighbour is the failure mode that matters, and `reload` is what keeps it recoverable:
+
+```sh
+sudo cp "$(ls -t /etc/caddy/Caddyfile.bak.* | head -1)" /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+Until step 4 this returns 502, because nothing is listening on 8787 yet. That is expected.
+
+---
+
+### B — Cloudflare Tunnel
 
 Use the dashboard flow. It creates the DNS record for you and needs no `config.yml`, no
 `cert.pem`, and no credentials-file path to get wrong.
@@ -149,17 +265,25 @@ sudo systemctl status cloudflared    # expect active (running)
 Until step 4 the tunnel will return 502, because nothing is listening on 8787 yet. That is
 expected.
 
-### One Cloudflare setting to confirm
+---
+
+### Cloudflare settings — only for zones Cloudflare actually proxies
+
+Both of these are edge behaviours, so they apply to **orange-clouded** hostnames and to tunnels.
+A grey-cloud record runs no Cloudflare features at all, and neither setting can reach it.
 
 **Speed → Optimization → Rocket Loader: off.** It rewrites script tags, which nulls
 `document.currentScript` — the mechanism the widget uses to recover its project key from its own
-URL. It is off by default; confirm it, and confirm it on any zone hosting a commented page, not
-only this one.
+URL. It is off by default.
 
-Leave caching alone. The bundle is served with `Cache-Control: no-cache` plus an ETag, so
-Cloudflare revalidates and deploys propagate immediately. **Never add a "Cache Everything" rule
-covering `/w/*`**: embedded sites cannot be asked to re-paste their snippet, so a stale bundle
-is unfixable from their side.
+Check it on **the zone serving the commented page**, which is the case that actually bites: our own
+host can be grey-cloud and perfectly healthy while a proxied customer zone silently breaks the
+widget on their pages. The symptom is the widget never appearing, with nothing in the console.
+
+**Never add a "Cache Everything" rule covering `/w/*`.** The bundle ships `Cache-Control: no-cache`
+plus an ETag, so a proxy that respects origin headers revalidates and deploys propagate
+immediately. Override that and you have pinned a stale bundle on sites that cannot be asked to
+re-paste their snippet, which makes it unfixable from their side.
 
 ---
 
@@ -178,9 +302,14 @@ packages; Vite and TypeScript never reach the server.
 Confirm it came up:
 
 ```bash
-ssh you@your-vps systemctl is-active teammate     # expect: active
+ssh you@your-vps systemctl is-active teammate       # expect: active
+ssh you@your-vps 'ss -ltnp | grep 8787'             # expect 127.0.0.1:8787, NOT 0.0.0.0:8787
+curl -s  https://teammate.jaan.to/healthz           # expect: ok
 curl -sI https://teammate.jaan.to/signin | head -1  # expect: HTTP/2 200
 ```
+
+Assert the bind address rather than trusting the config. `TC_BIND` is a default in code and a line
+in an env file; only `ss` knows what the process actually did with them.
 
 ---
 
@@ -286,5 +415,6 @@ Deliberate for a private V1. See [ROADMAP.md](ROADMAP.md).
 - **Shared-suffix domains are broad.** `vercel.app` as a project domain matches every Vercel
   site, not only yours. The project key ships publicly in the snippet, so use the most specific
   domain you can.
-- The service runs as your own user with no systemd hardening. The tunnel means nothing is
-  listening publicly, which is what makes that acceptable here.
+- **There is no health check beyond `/healthz`.** It answers `ok` without touching the database,
+  which is the point — it reports whether the process is alive, not whether it is useful. Nothing
+  watches it for you; wire it into whatever monitors the box.
