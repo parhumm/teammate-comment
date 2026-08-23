@@ -394,13 +394,24 @@ siblings, start.
 
 | Symptom | Cause |
 |---|---|
-| Snippet shows `localhost` | `TC_PUBLIC_ORIGIN` missing. `sudo systemctl show teammate -p Environment` |
+| Snippet shows `localhost` | `TC_PUBLIC_ORIGIN` is not reaching the process — read it off the process itself (below) |
 | `teammate.jaan.to` returns 502 | App is down. `systemctl status teammate`, `journalctl -u teammate -n 50` |
 | Widget never appears, no console error | Rocket Loader on for the **host page's** zone |
 | Widget logs a CORS or 403 error | Page's domain is not in that project |
 | Deploy prompts for a sudo password | sudoers path must be `/usr/bin/systemctl`, not `/bin/systemctl` |
 | `npm ci` fails on the VPS | A workspace manifest is missing; `widget/` must be rsynced whole |
 | Comments vanished after a deploy | `TC_DB` is pointing inside `/opt/teammate`; it must be `/var/lib/teammate` |
+
+To read the environment the service actually got, ask the **process**, not systemd:
+
+```bash
+PID=$(systemctl show teammate -p MainPID --value)
+sudo tr '\0' '\n' < /proc/$PID/environ | grep TC_
+```
+
+`systemctl show teammate -p Environment` will not help: it lists only inline `Environment=`
+directives, and everything here arrives via `EnvironmentFile=`. It prints an empty line whether the
+env file loaded perfectly or was never read at all — the one answer a diagnostic must never give.
 
 ---
 
