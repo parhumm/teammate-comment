@@ -17,8 +17,9 @@ to mis-wire.
 
 ## Running it
 
-Requires Node 22 or newer (`node:sqlite` and `node --run` era). No native modules, no database
-server, no build step for the server.
+Requires Node 22.18 or newer. The server runs TypeScript directly on `node`, so there is no
+transpiler, no native modules, no database server, and no build step for the server. Only the
+widget is bundled.
 
 ```bash
 npm install
@@ -44,6 +45,20 @@ Create the project with domain `localhost` and both demo pages will be allowed.
 | `TC_SECRET` | generated into `data/.secret` | Session signing key |
 | `TC_PUBLIC_ORIGIN` | request origin | Origin written into the snippet |
 | `DEMO_PORT` | `5173` | Demo static server |
+
+---
+
+## Deploying
+
+See [DEPLOY.md](DEPLOY.md). Short version: a VPS behind a Cloudflare Tunnel, which means no
+reverse proxy, no certificate to manage, and no inbound ports open except SSH.
+
+```bash
+TC_HOST=you@your-vps ./deploy.sh
+```
+
+Builds the widget locally, ships the artifacts, restarts the service. The server installs four
+production packages; Vite and TypeScript never reach it.
 
 ---
 
