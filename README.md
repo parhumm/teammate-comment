@@ -41,6 +41,7 @@ Create the project with domain `localhost` and both demo pages will be allowed.
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `8787` | Panel and API |
+| `TC_BIND` | `127.0.0.1` | Interface to listen on. Loopback by default: the process is meant to sit behind a proxy, and signup is open, so an exposed port is an open panel. Confirm with `ss -ltnp \| grep 8787` rather than trusting this row. |
 | `TC_DB` | `../data/comments.db` | SQLite file, relative to the server's cwd |
 | `TC_SECRET_FILE` | `../data/.secret` | Where the session key is generated and kept |
 | `TC_SECRET` | unset | Session key given inline, overrides the file |
