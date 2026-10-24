@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { readFileSync } from 'node:fs'
 import { db, type Project, type User } from './db.ts'
 import {
   hashPassword,
@@ -528,6 +529,22 @@ app.post('/projects/:id/delete', (c) => {
   return c.redirect('/projects')
 })
 
-panel.route('/', app)
+/**
+ * Registered ahead of the guarded routes, whose `/*` guard would otherwise send
+ * a signed-out visitor straight to /signin. The page is authored without a
+ * document skeleton (it doubles as a hosted preview), so the skeleton is added
+ * here, and its links are written against the production origin. The head is
+ * left open on purpose: the page's title, meta and styles stay in it, and its
+ * first element closes it implicitly, as HTML allows.
+ */
+const LANDING = readFileSync(new URL('./views/landing.html', import.meta.url), 'utf8')
 
-panel.get('/', (c) => c.redirect(currentUser(c) ? '/projects' : '/signin'))
+panel.get('/', (c) =>
+  currentUser(c)
+    ? c.redirect('/projects')
+    : c.html(
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">${LANDING.replaceAll('https://teammate.jaan.to', publicOrigin(c))}</html>`,
+      ),
+)
+
+panel.route('/', app)

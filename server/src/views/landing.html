@@ -1,0 +1,1319 @@
+<title>Teammate Comment</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Add one script tag to any webpage and let people select text, comment without an account, discuss in threads, and resolve.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://teammate.jaan.to/">
+<meta property="og:title" content="Teammate Comment: Figma comments for text, without Figma">
+<meta property="og:description" content="Add one script tag to any webpage and let people select text, comment without an account, discuss in threads, and resolve.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M3 1.5h12A2.5 2.5 0 0 1 17.5 4v7.5A2.5 2.5 0 0 1 15 14H8.5l-4.5 3v-3H3A2.5 2.5 0 0 1 .5 11.5V4A2.5 2.5 0 0 1 3 1.5z' fill='%23245a43'/%3E%3Cpath d='M4.5 6h9M4.5 9.5h5.5' stroke='%23f6f3ea' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,300..700;1,7..72,400&display=swap">
+<style>
+/* Layout: the page is the host document, set in a reading face and inked in its
+   own green. The widget is an instrument laid over it, set in the system stack
+   and neutral like the real one. --tc-* tokens are shared/tokens.ts verbatim;
+   amber means an open thread, nothing else. */
+:root {
+  --tc-surface-0: oklch(0.990 0.004 80);
+  --tc-surface-1: oklch(0.975 0.005 80);
+  --tc-surface-2: oklch(0.998 0.003 80);
+  --tc-border-subtle: oklch(0.90 0.006 80);
+  --tc-border: oklch(0.84 0.008 80);
+  --tc-text-1: oklch(0.24 0.010 75);
+  --tc-text-2: oklch(0.52 0.008 75);
+  --tc-text-3: oklch(0.64 0.007 75);
+  --tc-signal: oklch(0.70 0.145 72);
+  --tc-signal-text: oklch(0.52 0.130 62);
+  --tc-danger: oklch(0.55 0.170 27);
+  --tc-action-bg: oklch(0.24 0.010 75);
+  --tc-action-fg: oklch(0.98 0.004 80);
+  --tc-hl-1: oklch(0.93 0.055 82);
+  --tc-hl-2: oklch(0.89 0.090 80);
+  --tc-hl-3: oklch(0.85 0.120 78);
+  --tc-shadow: 0 1px 2px oklch(0.24 0.01 75 / 0.06), 0 8px 24px oklch(0.24 0.01 75 / 0.10);
+
+  /* The page's own voice: banker's-lamp green, the shade over the desk where
+     the amber light falls. It is the host's color, never the widget's. */
+  --lp-ink: oklch(0.38 0.085 160);
+  --lp-ink-2: oklch(0.46 0.075 160);
+  --lp-on-ink: oklch(0.98 0.008 120);
+  --lp-shade: oklch(0.33 0.065 162);
+  --lp-shade-2: oklch(0.295 0.058 162);
+  --lp-shade-line: oklch(0.42 0.055 162);
+  --lp-on-shade: oklch(0.95 0.018 130);
+  --lp-on-shade-2: oklch(0.80 0.040 150);
+  --lp-select: oklch(0.88 0.065 160);
+
+  --doc: "Literata", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --tc-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --tc-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --tc-r-control: 6px;
+  --tc-r-panel: 10px;
+  --tc-r-pill: 999px;
+  --tc-ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --tc-fast: 120ms;
+  --tc-base: 180ms;
+  --tc-slow: 220ms;
+  --measure: 64ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tc-surface-0: oklch(0.210 0.008 75);
+    --tc-surface-1: oklch(0.175 0.008 75);
+    --tc-surface-2: oklch(0.250 0.009 75);
+    --tc-border-subtle: oklch(0.27 0.009 75);
+    --tc-border: oklch(0.32 0.010 75);
+    --tc-text-1: oklch(0.95 0.005 80);
+    --tc-text-2: oklch(0.72 0.007 78);
+    --tc-text-3: oklch(0.60 0.007 78);
+    --tc-signal: oklch(0.78 0.145 78);
+    --tc-signal-text: oklch(0.82 0.130 80);
+    --tc-danger: oklch(0.72 0.150 27);
+    --tc-action-bg: oklch(0.95 0.005 80);
+    --tc-action-fg: oklch(0.20 0.010 75);
+    --tc-hl-1: oklch(0.34 0.055 78);
+    --tc-hl-2: oklch(0.40 0.080 76);
+    --tc-hl-3: oklch(0.46 0.105 74);
+    --tc-shadow: 0 1px 2px oklch(0 0 0 / 0.30), 0 8px 24px oklch(0 0 0 / 0.44);
+    --lp-ink: oklch(0.84 0.085 160);
+    --lp-ink-2: oklch(0.76 0.075 160);
+    --lp-on-ink: oklch(0.22 0.030 162);
+    --lp-shade: oklch(0.27 0.050 162);
+    --lp-shade-2: oklch(0.235 0.045 162);
+    --lp-shade-line: oklch(0.36 0.045 162);
+    --lp-on-shade: oklch(0.94 0.018 130);
+    --lp-on-shade-2: oklch(0.76 0.040 150);
+    --lp-select: oklch(0.40 0.075 160);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --tc-surface-0: oklch(0.210 0.008 75);
+  --tc-surface-1: oklch(0.175 0.008 75);
+  --tc-surface-2: oklch(0.250 0.009 75);
+  --tc-border-subtle: oklch(0.27 0.009 75);
+  --tc-border: oklch(0.32 0.010 75);
+  --tc-text-1: oklch(0.95 0.005 80);
+  --tc-text-2: oklch(0.72 0.007 78);
+  --tc-text-3: oklch(0.60 0.007 78);
+  --tc-signal: oklch(0.78 0.145 78);
+  --tc-signal-text: oklch(0.82 0.130 80);
+  --tc-danger: oklch(0.72 0.150 27);
+  --tc-action-bg: oklch(0.95 0.005 80);
+  --tc-action-fg: oklch(0.20 0.010 75);
+  --tc-hl-1: oklch(0.34 0.055 78);
+  --tc-hl-2: oklch(0.40 0.080 76);
+  --tc-hl-3: oklch(0.46 0.105 74);
+  --tc-shadow: 0 1px 2px oklch(0 0 0 / 0.30), 0 8px 24px oklch(0 0 0 / 0.44);
+  --lp-ink: oklch(0.84 0.085 160);
+  --lp-ink-2: oklch(0.76 0.075 160);
+  --lp-on-ink: oklch(0.22 0.030 162);
+  --lp-shade: oklch(0.27 0.050 162);
+  --lp-shade-2: oklch(0.235 0.045 162);
+  --lp-shade-line: oklch(0.36 0.045 162);
+  --lp-on-shade: oklch(0.94 0.018 130);
+  --lp-on-shade-2: oklch(0.76 0.040 150);
+  --lp-select: oklch(0.40 0.075 160);
+  color-scheme: dark;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --tc-fast: 80ms; --tc-base: 80ms; --tc-slow: 80ms; }
+}
+
+/* Painted into the document, where only literals are guaranteed to reach. */
+::highlight(tc-1) { background-color: oklch(0.93 0.055 82); }
+::highlight(tc-2) { background-color: oklch(0.89 0.090 80); }
+::highlight(tc-3) { background-color: oklch(0.85 0.120 78); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) ::highlight(tc-1) { background-color: oklch(0.34 0.055 78); }
+  :root:not([data-theme="light"]) ::highlight(tc-2) { background-color: oklch(0.40 0.080 76); }
+  :root:not([data-theme="light"]) ::highlight(tc-3) { background-color: oklch(0.46 0.105 74); }
+}
+:root[data-theme="dark"] ::highlight(tc-1) { background-color: oklch(0.34 0.055 78); }
+:root[data-theme="dark"] ::highlight(tc-2) { background-color: oklch(0.40 0.080 76); }
+:root[data-theme="dark"] ::highlight(tc-3) { background-color: oklch(0.46 0.105 74); }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--tc-surface-1);
+  color: var(--tc-text-1);
+  font-family: var(--doc);
+  font-size: 18px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color var(--tc-slow) var(--tc-ease), color var(--tc-slow) var(--tc-ease);
+}
+a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+:where(a, button, input, textarea):focus-visible {
+  outline: 2px solid var(--tc-text-1);
+  outline-offset: 2px;
+}
+::selection { background: var(--lp-select); }
+.shade :focus-visible { outline-color: var(--lp-on-shade); }
+
+.gutter {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1080px; margin: 0 auto; }
+
+/* ------------------------------------------------------------ top bar -- */
+.top {
+  font-family: var(--tc-font);
+  font-size: 14px;
+  border-bottom: 1px solid var(--tc-border-subtle);
+}
+.top .wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-block: 16px;
+}
+.mark { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: -0.01em; text-decoration: none; margin-right: auto; color: var(--lp-ink); }
+.mark span { color: var(--tc-text-3); font-weight: 500; }
+.mark svg { width: 18px; height: 18px; flex: none; }
+.top nav { display: flex; align-items: center; gap: 20px; }
+.top nav a:not(.btn) { color: var(--tc-text-2); text-decoration: none; }
+.top nav a:not(.btn):hover { color: var(--tc-text-1); }
+@media (max-width: 640px) { .top nav .wide-only { display: none; } }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--tc-r-control);
+  padding: 9px 16px;
+  font: 500 14px/1.2 var(--tc-font);
+  background: var(--lp-ink);
+  color: var(--lp-on-ink);
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity var(--tc-fast) var(--tc-ease);
+}
+.btn:hover { opacity: 0.88; }
+.btn.ghost { background: transparent; color: var(--lp-ink); border-color: var(--tc-border); }
+.btn.sm { padding: 6px 12px; font-size: 13px; }
+.shade .btn { background: var(--lp-on-shade); color: var(--lp-shade); }
+.shade .btn.ghost { background: transparent; color: var(--lp-on-shade); border-color: var(--lp-on-shade-2); }
+
+/* --------------------------------------------------------------- hero -- */
+.hero .wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 32px 64px;
+  align-items: start;
+  padding-block: 72px 88px;
+}
+.hero h1 {
+  font-size: clamp(44px, 7.4vw, 84px);
+  font-weight: 450;
+  font-variation-settings: "opsz" 72;
+  line-height: 1.02;
+  letter-spacing: -0.028em;
+  margin: 0 0 28px;
+  text-wrap: balance;
+  color: var(--lp-ink);
+}
+.hero h1 em { font-style: italic; font-weight: 400; }
+/* A highlight paints with its own line, so at display leading it would cover the
+   descenders above it. Lifting the first line into its own layer keeps them on top. */
+.hero h1 .lift { display: block; position: relative; }
+.lede {
+  font-size: 21px;
+  line-height: 1.55;
+  color: var(--tc-text-2);
+  max-width: 34em;
+  margin: 0 0 32px;
+}
+.cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.try {
+  margin: 40px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 13px/1.4 var(--tc-font);
+  color: var(--tc-text-2);
+}
+.try .coarse { display: none; }
+@media (pointer: coarse) {
+  .try .fine { display: none; }
+  .try .coarse { display: inline; }
+}
+kbd {
+  font: 600 11.5px/1 var(--tc-mono);
+  border: 1px solid var(--tc-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 3px 6px;
+  background: var(--tc-surface-0);
+  color: var(--tc-text-1);
+}
+
+.docked { padding-top: 14px; }
+.docked .popup { position: static; width: 100%; max-height: none; animation: none; }
+.docked-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 11px/1 var(--tc-font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tc-text-3);
+  margin: 0 0 10px 2px;
+}
+@media (max-width: 900px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); padding-block: 48px 64px; }
+  .docked { max-width: 420px; padding-top: 0; }
+}
+
+/* ----------------------------------------------------------- sections -- */
+section { border-top: 1px solid var(--tc-border-subtle); }
+section > .wrap { padding-block: 72px; }
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 24px 64px;
+}
+@media (max-width: 900px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  section > .wrap { padding-block: 56px; }
+}
+h2 {
+  font-size: clamp(30px, 3.6vw, 40px);
+  font-weight: 450;
+  font-variation-settings: "opsz" 48;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+  text-wrap: balance;
+  color: var(--lp-ink);
+}
+h3 {
+  font: 600 13px/1.3 var(--tc-font);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--lp-ink-2);
+  margin: 0 0 16px;
+}
+p { margin: 0 0 16px; max-width: var(--measure); }
+.prose > :last-child { margin-bottom: 0; }
+.note { font-size: 16px; color: var(--tc-text-2); }
+code { font-family: var(--tc-mono); font-size: 0.82em; }
+
+/* --------------------------------------------------------------- code -- */
+/* Code is the page's darkest green, the one place it is drenched rather than inked. */
+.code {
+  min-width: 0;
+  align-self: start;
+  border-radius: var(--tc-r-panel);
+  background: var(--lp-shade);
+  color: var(--lp-on-shade);
+  font-family: var(--tc-font);
+  overflow: hidden;
+}
+.code + .code { margin-top: 16px; }
+.code-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  background: var(--lp-shade-2);
+  font-size: 12px;
+  color: var(--lp-on-shade-2);
+}
+.code-bar > :first-child { margin-right: auto; }
+.code pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font: 13.5px/1.6 var(--tc-mono);
+}
+.code pre .key { font-weight: 700; text-decoration: underline dotted var(--lp-on-shade-2); text-underline-offset: 3px; }
+.code pre .dim { color: var(--lp-on-shade-2); }
+.code pre.md { max-height: 360px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }
+.shade .link { color: var(--lp-on-shade-2); }
+.shade .link:hover { color: var(--lp-on-shade); }
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: 500 12px/1.4 var(--tc-font);
+  color: var(--tc-text-2);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link:hover { color: var(--tc-text-1); }
+.link.danger:hover { color: var(--tc-danger); }
+
+.seg { display: inline-flex; border: 1px solid var(--lp-shade-line); border-radius: var(--tc-r-control); overflow: hidden; }
+.seg button {
+  font: 500 12px/1 var(--tc-font);
+  border: 0;
+  background: none;
+  color: var(--lp-on-shade-2);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--lp-shade-line); }
+.seg button[aria-pressed="true"] { background: var(--lp-on-shade); color: var(--lp-shade); }
+
+/* ---------------------------------------------------------- two roles -- */
+.roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 64px; margin-top: 40px; }
+@media (max-width: 760px) { .roles { grid-template-columns: minmax(0, 1fr); } }
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+.steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  padding: 16px 0;
+  border-top: 1px solid var(--tc-border-subtle);
+}
+.steps li::before {
+  content: counter(step);
+  font: 500 13px/1.9 var(--tc-mono);
+  color: var(--lp-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.steps b { font-weight: 600; }
+
+/* ----------------------------------------------------------- gestures -- */
+.gestures { margin: 0; display: grid; }
+.gestures div {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(0, 2.4fr);
+  gap: 8px 24px;
+  padding: 14px 0;
+  border-top: 1px solid var(--tc-border-subtle);
+}
+.gestures dt { font: 500 14px/1.7 var(--tc-font); }
+.gestures dd { margin: 0; font-size: 16.5px; color: var(--tc-text-2); }
+@media (max-width: 560px) { .gestures div { grid-template-columns: minmax(0, 1fr); } }
+
+/* ----------------------------------------------------------- telegram -- */
+.chat {
+  min-width: 0;
+  align-self: start;
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-r-panel);
+  background: var(--tc-surface-0);
+  font-family: var(--tc-font);
+  padding: 16px;
+}
+.chat-head { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--tc-text-3); margin-bottom: 12px; }
+.chat-head b { font-size: 13px; color: var(--tc-text-1); }
+.bubble {
+  background: var(--tc-surface-2);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: 4px 14px 14px 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 44ch;
+  overflow-wrap: anywhere;
+  animation: pop var(--tc-base) var(--tc-ease) both;
+}
+.bubble p { margin: 0; }
+.bubble p + p { margin-top: 10px; }
+.bubble .src { color: var(--tc-text-2); }
+.bubble i { color: var(--tc-text-2); }
+.chat-foot { font-size: 11.5px; color: var(--tc-text-3); margin-top: 10px; }
+
+/* --------------------------------------------------------------- never -- */
+.never { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 64px; }
+.never li { padding: 20px 0; border-top: 1px solid var(--tc-border-subtle); }
+.never b { display: block; font-weight: 600; margin-bottom: 4px; }
+.never span { color: var(--tc-text-2); font-size: 16.5px; }
+@media (max-width: 760px) { .never { grid-template-columns: minmax(0, 1fr); } }
+
+.ramp { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; font: 500 12px/1 var(--tc-font); color: var(--tc-text-2); }
+.ramp span { display: inline-flex; align-items: center; gap: 8px; }
+.ramp i { width: 28px; height: 14px; border-radius: 2px; display: inline-block; }
+
+/* -------------------------------------------------------------- footer -- */
+.end { background: var(--lp-shade); color: var(--lp-on-shade); }
+.end .wrap { padding-block: 96px 0; }
+.end h2 { font-size: clamp(36px, 5vw, 56px); max-width: 16ch; color: var(--lp-on-shade); margin-bottom: 32px; }
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 24px;
+  margin-top: 96px;
+  padding-block: 24px max(32px, env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--lp-shade-line);
+  font: 13px/1.5 var(--tc-font);
+  color: var(--lp-on-shade-2);
+}
+.foot p { margin: 0; }
+.foot p:first-child { margin-right: auto; }
+.foot a { color: var(--lp-on-shade); white-space: nowrap; }
+/* Clears the fixed launcher so the last line is never under it. */
+@media (max-width: 640px) { .foot { padding-right: 72px; } }
+
+/* ---------------------------------------------------------- the widget -- */
+/* A replica of widget/src/styles.ts, run against this page. */
+#tc {
+  font-family: var(--tc-font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--tc-text-1);
+  text-align: left;
+}
+:where(#tc, .docked) :where(button, input, textarea) { font: inherit; color: inherit; }
+.layer { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 50; }
+
+.pill {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-r-pill);
+  background: var(--tc-surface-0);
+  box-shadow: var(--tc-shadow);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  animation: rise var(--tc-fast) var(--tc-ease) both;
+}
+.pill:hover { background: var(--tc-surface-2); }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.popup {
+  position: absolute;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--tc-surface-0);
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-r-panel);
+  box-shadow: var(--tc-shadow);
+  overflow: hidden;
+  font-family: var(--tc-font);
+  font-size: 14px;
+  line-height: 1.5;
+  animation: pop var(--tc-base) var(--tc-ease) both;
+}
+@keyframes pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes rise { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slide { from { opacity: 0; } to { opacity: 1; } }
+}
+.quote {
+  font-size: 12px;
+  color: var(--tc-text-2);
+  padding: 12px 12px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.quote::before { content: "\201C"; }
+.quote::after { content: "\201D"; }
+.scroll { overflow-y: auto; padding: 12px; display: grid; gap: 12px; }
+.comment { display: grid; gap: 3px; }
+.byline { display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; color: var(--tc-text-3); font-variant-numeric: tabular-nums; }
+.byline .who { font-size: 13px; font-weight: 600; color: var(--tc-text-1); }
+.byline .end-x { margin-left: auto; }
+.message { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--tc-text-3); padding: 0 12px; }
+.composer { display: grid; gap: 8px; padding: 12px; border-top: 1px solid var(--tc-border-subtle); }
+.composer input, .composer textarea {
+  width: 100%;
+  font-size: 13.5px;
+  background: var(--tc-surface-2);
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-r-control);
+  padding: 8px 10px;
+  resize: vertical;
+}
+.composer textarea { min-height: 64px; line-height: 1.45; }
+.composer input:focus, .composer textarea:focus { outline: none; border-color: var(--tc-text-3); }
+.as { font-size: 11.5px; color: var(--tc-text-3); }
+.row-end { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.row-end > .link:first-child { margin-right: auto; }
+.wbtn {
+  border: 1px solid transparent;
+  border-radius: var(--tc-r-control);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--tc-action-bg);
+  color: var(--tc-action-fg);
+  transition: opacity var(--tc-fast) var(--tc-ease);
+}
+.wbtn:hover { opacity: 0.88; }
+.wbtn[disabled] { opacity: 0.4; cursor: default; }
+.wbtn.ghost { background: transparent; color: var(--tc-text-1); border-color: var(--tc-border); }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tc-signal); flex: none; display: inline-block; }
+.dot.is-resolved { background: none; border: 1.5px solid var(--tc-text-3); }
+
+.launcher {
+  position: fixed;
+  right: calc(20px + env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-r-pill);
+  background: var(--tc-surface-0);
+  box-shadow: var(--tc-shadow);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.launcher:hover { background: var(--tc-surface-2); }
+.launcher .count { font-variant-numeric: tabular-nums; color: var(--tc-signal-text); font-weight: 600; }
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 70;
+  width: 360px;
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--tc-surface-1);
+  border-left: 1px solid var(--tc-border);
+  box-shadow: var(--tc-shadow);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: slide var(--tc-slow) var(--tc-ease) both;
+}
+@keyframes slide { from { transform: translateX(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sidebar-top { display: flex; align-items: baseline; gap: 8px; padding: 12px 12px 12px 20px; border-bottom: 1px solid var(--tc-border-subtle); }
+.sidebar-top h2 { margin: 0; font: 600 15px/1.4 var(--tc-font); letter-spacing: -0.01em; }
+.sidebar-top .link { margin-left: auto; }
+.sidebar-tools { display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 20px; border-bottom: 1px solid var(--tc-border-subtle); font-size: 12px; color: var(--tc-text-3); }
+.sidebar-tools .link { margin-left: auto; }
+.sidebar-scroll { overflow-y: auto; flex: 1; }
+.thread {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--tc-border-subtle);
+  padding: 12px 12px 12px 20px;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 8px;
+}
+.thread:hover { background: var(--tc-surface-0); }
+.thread .dot { grid-row: 1; margin-top: 7px; }
+.thread .head { display: flex; align-items: baseline; gap: 8px; }
+.thread .who { font-size: 13px; font-weight: 600; }
+.thread .when { font-size: 11.5px; color: var(--tc-text-3); font-variant-numeric: tabular-nums; }
+.thread .excerpt { grid-column: 2; font-size: 13px; color: var(--tc-text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.thread .replies { grid-column: 2; font-size: 11.5px; color: var(--tc-text-3); margin-top: 2px; }
+.thread.is-resolved .who, .thread.is-resolved .excerpt { color: var(--tc-text-3); }
+.group { font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tc-text-3); padding: 20px 20px 8px; }
+.state { padding: 32px 20px; font-size: 13.5px; color: var(--tc-text-2); max-width: 40ch; }
+.more { padding: 16px 20px; }
+
+@media (max-width: 480px) {
+  .sidebar {
+    top: auto;
+    left: 0;
+    height: 72vh;
+    width: auto;
+    border-left: 0;
+    border-top: 1px solid var(--tc-border);
+    border-radius: var(--tc-r-panel) var(--tc-r-panel) 0 0;
+  }
+  .launcher { right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (pointer: coarse) {
+  .launcher { height: 44px; padding: 0 16px; }
+  .link { padding: 6px 0; }
+  .wbtn { padding: 10px 14px; }
+}
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+
+<header class="top gutter" data-tc-ignore>
+  <div class="wrap">
+    <a class="mark" href="#"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 1.5h12A2.5 2.5 0 0 1 17.5 4v7.5A2.5 2.5 0 0 1 15 14H8.5l-4.5 3v-3H3A2.5 2.5 0 0 1 .5 11.5V4A2.5 2.5 0 0 1 3 1.5z" fill="currentColor"/><path d="M4.5 6h9M4.5 9.5h5.5" stroke="var(--tc-surface-1)" stroke-width="1.6" stroke-linecap="round"/></svg>Teammate <span>Comment</span></a>
+    <nav aria-label="Primary">
+      <a class="wide-only" href="#install">Install</a>
+      <a class="wide-only" href="#self-host">Self-host</a>
+      <a href="https://teammate.jaan.to/signin">Sign in</a>
+      <a class="btn sm" href="https://teammate.jaan.to/signup">Create account</a>
+    </nav>
+  </div>
+</header>
+
+<main id="doc">
+  <div class="hero gutter">
+    <div class="wrap">
+      <div id="hero-copy">
+        <h1><span class="lift">Figma comments</span> <em>for text</em>, without Figma.</h1>
+        <p class="lede">Add one script tag to any webpage. Your teammates select text, comment without an account, talk it through in threads and resolve. You read every thread on the page from one sidebar.</p>
+        <div class="cta" data-tc-ignore>
+          <a class="btn" href="https://teammate.jaan.to/signup">Create a project</a>
+          <a class="btn ghost" href="#install">See the snippet</a>
+        </div>
+        <p class="try" data-tc-ignore>
+          <span class="fine">This page carries the widget. Select any sentence, then press <kbd>C</kbd> or click Comment.</span>
+          <span class="coarse">This page carries the widget. Open the 💬 in the corner to read and reply to its threads.</span>
+        </p>
+      </div>
+      <aside class="docked" data-tc-ignore aria-label="Thread on the headline">
+        <p class="docked-label">Open thread on the headline</p>
+        <div id="docked"></div>
+      </aside>
+    </div>
+  </div>
+
+  <section id="install" class="gutter">
+    <div class="wrap split">
+      <div class="prose">
+        <h2>One string to copy</h2>
+        <p>No npm package, no build step, no server-side install, no framework. The project key rides in the script URL, so there is one string to copy and nothing to mis-wire.</p>
+        <p class="note">The bundle is byte-identical for every project and revalidates on each load, so a fix you ship reaches every page that carries it without anyone re-pasting anything.</p>
+      </div>
+      <div>
+        <div class="code shade" data-tc-ignore>
+          <div class="code-bar"><span>Paste before &lt;/body&gt;</span><button class="link" type="button" data-copy="snippet">Copy</button></div>
+          <pre id="snippet">&lt;script src="https://teammate.jaan.to/w/<span class="key">PROJECT_KEY</span>.js"&gt;&lt;/script&gt;</pre>
+        </div>
+        <div class="code shade" data-tc-ignore>
+          <div class="code-bar">
+            <span>The only option</span>
+            <div class="seg" role="group" aria-label="Preview theme">
+              <button type="button" data-theme-pick="auto" aria-pressed="true">Auto</button>
+              <button type="button" data-theme-pick="light" aria-pressed="false">Light</button>
+              <button type="button" data-theme-pick="dark" aria-pressed="false">Dark</button>
+            </div>
+          </div>
+          <pre id="option"></pre>
+        </div>
+        <p class="note" style="margin-top:16px">Without it the widget reads the host page's <code>color-scheme</code>, then the reader's <code>prefers-color-scheme</code>. Try the switch: chrome inverts, and hue, spacing, type and shape stay put.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="roles" class="gutter">
+    <div class="wrap">
+      <h2>Two roles share one system</h2>
+      <p>Owners sign up once and hand over a snippet. Commenters never have an account and never meet a signup screen. They open a page and start marking it up.</p>
+      <p class="note">Built for private review with people you trust. There is no moderation yet, so anyone who can open the page can edit or delete any comment.</p>
+      <div class="roles">
+        <div>
+          <h3>Owners</h3>
+          <ol class="steps">
+            <li><span><b>Sign up once.</b> One account holds every project you install.</span></li>
+            <li><span><b>Create a project per site</b> and name the domain it may run on.</span></li>
+            <li><span><b>Paste the snippet</b> before <code>&lt;/body&gt;</code>. That is the whole install.</span></li>
+          </ol>
+        </div>
+        <div>
+          <h3>Commenters</h3>
+          <ol class="steps">
+            <li><span><b>Open the page.</b> Staging, a draft, a client deliverable.</span></li>
+            <li><span><b>Select the text</b> the feedback is about.</span></li>
+            <li><span><b>Comment, reply, resolve.</b> Your name is asked once and kept on your device.</span></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="gestures" class="gutter">
+    <div class="wrap split">
+      <div class="prose">
+        <h2>Nothing to learn</h2>
+        <p>No tour, no tooltips, no coach marks. Selecting text to comment is one gesture, and everything else follows from it.</p>
+      </div>
+      <dl class="gestures">
+        <div><dt>Select text</dt><dd>A Comment pill appears at the end of the selection.</dd></div>
+        <div><dt><kbd>C</kbd> with text selected</dt><dd>The same thing without the mouse. Ignored while you are typing in a field.</dd></div>
+        <div><dt>Click a highlight</dt><dd>Opens its thread. Where highlights overlap, the smallest range wins, because it is the most specific thing you could have meant.</dd></div>
+        <div><dt>💬 launcher</dt><dd>Opens the sidebar: every thread on the page in document order, open ones counted on the badge.</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Closes the composer or the open thread, then leaves select mode, then closes the sidebar.</dd></div>
+        <div><dt><code>#tc-&lt;id&gt;</code> in the URL</dt><dd>Opens that thread and scrolls to it on load. Comments belong to a page, so <code>?utm_source=x</code> lands on the same threads as the bare URL.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="copy" class="gutter">
+    <div class="wrap split">
+      <div class="prose">
+        <h2>Hand the feedback to your assistant</h2>
+        <p>Copy turns threads into Markdown: the page URL, a CSS path to the element each quote sits in, the quote, and every comment in order. Take one thread, pick a few in the sidebar, or copy everything, then paste it into an assistant and let it apply the edits.</p>
+        <p class="note">This block is live. Leave a comment anywhere on the page and watch it arrive.</p>
+      </div>
+      <div class="code shade" data-tc-ignore>
+        <div class="code-bar"><span>Copy all, from the sidebar</span><button class="link" type="button" data-copy="md">Copy</button></div>
+        <pre class="md" id="md"></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="telegram" class="gutter">
+    <div class="wrap split">
+      <div class="prose">
+        <h2>Comments arrive where your team talks</h2>
+        <p>Each project can have its own Telegram bot. Paste a token from @BotFather, press Start, and every new comment and reply lands in that chat with the page, the quoted text and the message. Add the bot to a group and the whole team sees it.</p>
+        <p class="note">The Start link carries a code only your project knows, and only the chat that sends it is adopted, so a stranger who finds the bot cannot become the recipient. Delivery is fire-and-forget: a slow or blocked bot never delays a comment.</p>
+      </div>
+      <div class="chat" data-tc-ignore>
+        <div class="chat-head"><b>Teammate</b><span>bot</span></div>
+        <div id="chat"></div>
+        <p class="chat-foot">Also live. The most recent comment on this page, as the bot sends it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="never" class="gutter">
+    <div class="wrap">
+      <h2>A guest on your page</h2>
+      <p>Every conflict between the widget's clarity and your page's readability resolves toward your page.</p>
+      <ul class="never">
+        <li><b>It never rewrites your markup.</b><span>Highlights paint over text ranges with the CSS Custom Highlight API, so copy-paste and find-in-page keep working.</span></li>
+        <li><b>It never asks for attention.</b><span>With zero threads the launcher is a small neutral marker. It earns a count once something is open.</span></li>
+        <li><b>It never borrows your styles.</b><span>The widget lives in a shadow root and sizes itself in pixels, so a host with a 10px root font cannot shrink it.</span></li>
+        <li><b>Amber means an open thread.</b><span>Nothing else, anywhere. Resolved is the absence of amber plus a word, so color never carries meaning alone.</span>
+          <span class="ramp" data-tc-ignore aria-hidden="true">
+            <span><i style="background:var(--tc-hl-1)"></i>1 open</span>
+            <span><i style="background:var(--tc-hl-2)"></i>2 overlap</span>
+            <span><i style="background:var(--tc-hl-3)"></i>3 or more</span>
+          </span>
+        </li>
+      </ul>
+      <p class="note" style="margin-top:32px">Painted highlights need Chrome 105, Safari 17.2 or Firefox 140. Below that the widget still loads and every thread is still reachable from the sidebar. Starting a thread is desktop-only for now; touch devices read, reply and resolve.</p>
+    </div>
+  </section>
+
+  <section id="self-host" class="gutter">
+    <div class="wrap split">
+      <div class="prose">
+        <h2>One Node process and one SQLite file</h2>
+        <p>The server runs TypeScript directly on Node 22.18 or newer. No transpiler, no native modules, no database server. Put it behind anything that terminates TLS, set <code>TC_PUBLIC_ORIGIN</code> to its public address, and it is done.</p>
+        <p class="note">The source is on <a href="https://github.com/parhumm/teammate-comment">GitHub</a>, with deploy notes for a VPS behind a Cloudflare Tunnel.</p>
+      </div>
+      <div class="code shade" data-tc-ignore>
+        <div class="code-bar"><span>Run it yourself</span><button class="link" type="button" data-copy="run">Copy</button></div>
+        <pre id="run">git clone https://github.com/parhumm/teammate-comment
+cd teammate-comment
+npm install
+npm run build:widget
+npm run start   <span class="dim"># panel + API on http://localhost:8787</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <footer class="end gutter shade" data-tc-ignore>
+    <div class="wrap">
+      <h2>Your next review starts with one script tag.</h2>
+      <div class="cta">
+        <a class="btn" href="https://teammate.jaan.to/signup">Create a project</a>
+        <a class="btn ghost" href="https://teammate.jaan.to/signin">Sign in</a>
+      </div>
+      <div class="foot">
+        <p>Created by <a href="https://www.linkedin.com/in/parhumm/">Parhum Khoshbakht</a> · <a href="https://github.com/parhumm/teammate-comment">Source on GitHub</a></p>
+        <p>Comments you leave on this page stay in your browser tab. Reload and they are gone.</p>
+      </div>
+    </div>
+  </footer>
+</main>
+
+<div id="tc" data-tc-ignore>
+  <div class="layer" id="layer"></div>
+  <button class="launcher" id="launcher" type="button" aria-label="Comments"><span aria-hidden="true">💬</span><span class="count" id="count"></span></button>
+  <div id="sidebar-slot"></div>
+  <div class="sr-only" id="live" aria-live="polite"></div>
+</div>
+
+<script>
+(() => {
+  const PAGE = 'https://teammate.jaan.to/'
+  const PROJECT = 'Marketing site'
+  const doc = document.getElementById('doc')
+  const layer = document.getElementById('layer')
+  const fine = matchMedia('(pointer: fine)').matches
+  const canPaint = 'highlights' in CSS && typeof Highlight === 'function'
+  const $ = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild }
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+  let myName = ''
+  try { myName = localStorage.getItem('tc-name') || '' } catch {}
+  const saveName = (n) => { myName = n; try { localStorage.setItem('tc-name', n) } catch {} }
+
+  /* ------------------------------------------------------------ text index -- */
+  // Threads are anchored to text offsets, never to elements, like anchor.ts.
+  const nodes = []
+  let total = 0
+  const walker = document.createTreeWalker(doc, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => n.parentElement.closest('[data-tc-ignore]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+  })
+  for (let n; (n = walker.nextNode());) { nodes.push({ node: n, start: total }); total += n.length }
+  const byNode = new Map(nodes.map((e) => [e.node, e]))
+
+  function toOffset(container, offset) {
+    const hit = byNode.get(container)
+    if (hit) return hit.start + offset
+    if (container.nodeType === 3) return null
+    // An element boundary: the first indexed text at or after it.
+    const probe = document.createRange()
+    probe.setStart(container, offset)
+    for (const e of nodes) if (probe.comparePoint(e.node, 0) >= 0) return e.start
+    return total
+  }
+  function toPoint(o) {
+    for (const e of nodes) if (o <= e.start + e.node.length) return [e.node, o - e.start]
+    const last = nodes[nodes.length - 1]
+    return [last.node, last.node.length]
+  }
+  function rangeOf(start, end) {
+    const r = document.createRange()
+    r.setStart(...toPoint(start))
+    r.setEnd(...toPoint(end))
+    return r
+  }
+  function find(phrase) {
+    for (const e of nodes) {
+      const i = e.node.data.indexOf(phrase)
+      if (i >= 0) return { start: e.start + i, end: e.start + i + phrase.length }
+    }
+    throw new Error('seed phrase missing: ' + phrase)
+  }
+
+  /* ----------------------------------------------------------------- state -- */
+  const MIN = 60e3
+  const now = Date.now()
+  let seq = 0
+  const threads = []
+  function seed(phrase, resolved, comments) {
+    const span = find(phrase)
+    threads.push({ id: ++seq, ...span, quote: phrase, resolved, comments: comments.map(([name, message, ago]) => ({ name, message, at: now - ago * MIN })) })
+  }
+  seed('for text', false, [
+    ['Maya', 'Does this work on our staging site? It sits behind basic auth.', 140],
+    ['Jon', 'Yes. Subdomains of the project domain are covered, so staging.acme.com works as is.', 9],
+  ])
+  seed('The project key rides in the script URL, so there is one string to copy', false, [
+    ['Lena', 'So the key is the whole configuration?', 1500],
+  ])
+  seed('one string to copy', false, [
+    ['Sam', 'Worth saying this sooner. It is the thing people ask about first.', 52],
+  ])
+  seed('Your name is asked once and kept on your device.', true, [
+    ['Ari', 'Should this mention that clearing site data forgets the name?', 3200],
+    ['Jon', 'Left as is. It reads fine.', 3100],
+  ])
+  const HERO = 1
+  let lastEvent = { who: 'Jon', kind: 'reply', thread: threads[0], message: threads[0].comments[1].message }
+  let openId = null
+  let showResolved = false
+  let pending = null
+
+  const open = () => threads.filter((t) => !t.resolved).sort((a, b) => a.start - b.start)
+  const resolved = () => threads.filter((t) => t.resolved).sort((a, b) => a.start - b.start)
+  const byId = (id) => threads.find((t) => t.id === id)
+
+  function ago(at) {
+    const m = Math.round((Date.now() - at) / MIN)
+    if (m < 1) return 'just now'
+    if (m < 60) return m + 'm'
+    if (m < 1440) return Math.round(m / 60) + 'h'
+    return Math.round(m / 1440) + 'd'
+  }
+
+  /* ------------------------------------------------------------ highlights -- */
+  // Coverage segments, so overlaps step up the ramp instead of stacking paint.
+  function paint() {
+    if (!canPaint) return
+    const live = open()
+    const cuts = [...new Set(live.flatMap((t) => [t.start, t.end]))].sort((a, b) => a - b)
+    const levels = [new Highlight(), new Highlight(), new Highlight()]
+    for (let i = 0; i < cuts.length - 1; i++) {
+      const a = cuts[i], b = cuts[i + 1]
+      const n = live.filter((t) => t.start <= a && t.end >= b).length
+      if (n) levels[Math.min(n, 3) - 1].add(rangeOf(a, b))
+    }
+    levels.forEach((h, i) => CSS.highlights.set('tc-' + (i + 1), h))
+  }
+
+  /* -------------------------------------------------------------- markdown -- */
+  // Same output as widget/src/copy.ts.
+  function elementPath(el) {
+    const parts = []
+    for (let node = el; node && node.tagName !== 'BODY' && node.tagName !== 'HTML'; node = node.parentElement) {
+      if (node.id && /^[A-Za-z][\w-]*$/.test(node.id)) { parts.unshift('#' + node.id); return parts.join(' > ') }
+      const tag = node.tagName.toLowerCase()
+      const same = node.parentElement ? [...node.parentElement.children].filter((c) => c.tagName === node.tagName) : []
+      parts.unshift(same.length > 1 ? `${tag}:nth-of-type(${same.indexOf(node) + 1})` : tag)
+    }
+    return parts.join(' > ') || 'body'
+  }
+  function markdown(list) {
+    const blocks = list.map((t, i) => {
+      const node = rangeOf(t.start, t.end).commonAncestorContainer
+      return [
+        `### Thread ${i + 1} (${t.resolved ? 'resolved' : 'open'})`,
+        `Element: ${elementPath(node.nodeType === 1 ? node : node.parentElement)}`,
+        `Quote: "${t.quote.replace(/\s+/g, ' ').trim()}"`,
+        '',
+        ...t.comments.map((c) => `- ${c.name}: ${c.message.trim().replace(/\n/g, '\n  ')}`),
+      ].join('\n')
+    })
+    return `${[`## ${PAGE}`, ...blocks].join('\n\n')}\n`
+  }
+  const everything = () => [...threads].sort((a, b) => a.start - b.start)
+
+  async function copy(text, button) {
+    const label = button.textContent
+    try { await navigator.clipboard.writeText(text); button.textContent = 'Copied' }
+    catch { button.textContent = 'Select and copy'; return false }
+    setTimeout(() => { button.textContent = label }, 1400)
+    return true
+  }
+
+  /* ---------------------------------------------------------------- render -- */
+  function nameField(id) {
+    return myName
+      ? `<span class="as">Commenting as ${esc(myName)} · <button class="link" type="button" data-act="rename">change</button></span>`
+      : `<input id="${id}-name" name="name" placeholder="Your name" autocomplete="name" maxlength="40" required>`
+  }
+
+  function threadView(t, where) {
+    const pop = $(`<div class="popup" role="dialog" aria-label="Thread on ${esc(t.quote.slice(0, 40))}"></div>`)
+    pop.innerHTML = `
+      <div class="quote">${esc(t.quote)}</div>
+      <div class="scroll">${t.comments.map((c, i) => `
+        <div class="comment">
+          <div class="byline"><span class="who">${esc(c.name)}</span><span>${ago(c.at)}</span>
+            ${c.mine ? `<button class="link danger end-x" type="button" data-act="delete" data-i="${i}">Delete</button>` : ''}</div>
+          <div class="message">${esc(c.message)}</div>
+        </div>`).join('')}
+      </div>
+      ${t.resolved ? `<div class="status"><span class="dot is-resolved" aria-hidden="true"></span>Resolved</div>` : ''}
+      <form class="composer">
+        ${nameField(where)}
+        <textarea id="${where}-reply" name="message" placeholder="Reply" rows="2" required></textarea>
+        <div class="row-end">
+          <button class="link" type="button" data-act="copy">Copy</button>
+          <button class="wbtn ghost" type="button" data-act="resolve">${t.resolved ? 'Reopen' : 'Resolve'}</button>
+          <button class="wbtn" type="submit">Reply</button>
+        </div>
+      </form>`
+    pop.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act
+      if (act === 'resolve') { t.resolved = !t.resolved; say(t.resolved ? 'Thread resolved' : 'Thread reopened'); render() }
+      if (act === 'copy') copy(markdown([t]), e.target)
+      if (act === 'rename') { saveName(''); render() }
+      if (act === 'delete') {
+        t.comments.splice(Number(e.target.dataset.i), 1)
+        // A highlight with nothing behind it has no reason to exist.
+        if (!t.comments.length) { threads.splice(threads.indexOf(t), 1); if (openId === t.id) openId = null; say('Thread deleted') }
+        render()
+      }
+    })
+    pop.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault()
+      const f = new FormData(e.target)
+      const message = String(f.get('message') || '').trim()
+      const name = myName || String(f.get('name') || '').trim()
+      if (!message || !name) return
+      saveName(name)
+      t.comments.push({ name, message, at: Date.now(), mine: true })
+      lastEvent = { who: name, kind: 'reply', thread: t, message }
+      say('Reply posted')
+      render()
+      document.getElementById(where + '-reply')?.focus()
+    })
+    return pop
+  }
+
+  function composerView(p) {
+    const pop = $(`<div class="popup" role="dialog" aria-label="New comment"></div>`)
+    pop.innerHTML = `
+      <div class="quote">${esc(p.quote)}</div>
+      <form class="composer" style="border-top:0">
+        ${nameField('new')}
+        <textarea id="new-message" name="message" placeholder="What's on your mind?" rows="3" required></textarea>
+        <div class="row-end">
+          <button class="wbtn ghost" type="button" data-act="cancel">Cancel</button>
+          <button class="wbtn" type="submit">Comment</button>
+        </div>
+      </form>`
+    pop.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act
+      if (act === 'cancel') { pending = null; render() }
+      if (act === 'rename') { saveName(''); render() }
+    })
+    pop.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault()
+      const f = new FormData(e.target)
+      const message = String(f.get('message') || '').trim()
+      const name = myName || String(f.get('name') || '').trim()
+      if (!message || !name) return
+      saveName(name)
+      const t = { id: ++seq, start: p.start, end: p.end, quote: p.quote, resolved: false, comments: [{ name, message, at: Date.now(), mine: true }] }
+      threads.push(t)
+      lastEvent = { who: name, kind: 'comment', thread: t, message }
+      pending = null
+      openId = t.id
+      getSelection().removeAllRanges()
+      say('Comment posted')
+      render()
+    })
+    return pop
+  }
+
+  // Below the anchor, flipped above when there is no room, kept on screen.
+  function place(pop, rect) {
+    layer.append(pop)
+    const w = pop.offsetWidth, h = pop.offsetHeight
+    const left = Math.min(Math.max(12, rect.left), innerWidth - w - 12)
+    const below = rect.bottom + 8
+    const top = below + h > innerHeight - 12 && rect.top - h - 8 > 12 ? rect.top - h - 8 : below
+    pop.style.left = left + scrollX + 'px'
+    pop.style.top = top + scrollY + 'px'
+  }
+
+  function sidebarView() {
+    const o = open(), r = resolved()
+    const row = (t) => `
+      <button class="thread${t.resolved ? ' is-resolved' : ''}" type="button" data-thread="${t.id}">
+        <span class="dot${t.resolved ? ' is-resolved' : ''}" aria-hidden="true"></span>
+        <span class="head"><span class="who">${esc(t.comments[0].name)}</span><span class="when">${ago(t.comments[t.comments.length - 1].at)}</span>${t.resolved ? '<span class="when">Resolved</span>' : ''}</span>
+        <span class="excerpt">${esc(t.comments[0].message)}</span>
+        ${t.comments.length > 1 ? `<span class="replies">${t.comments.length - 1} ${t.comments.length === 2 ? 'reply' : 'replies'}</span>` : ''}
+      </button>`
+    const el = $(`<aside class="sidebar" aria-label="Comments"></aside>`)
+    el.innerHTML = `
+      <div class="sidebar-top"><h2>Comments (${threads.length})</h2><button class="link" type="button" data-act="close">Close</button></div>
+      <div class="sidebar-tools"><span>${o.length} open</span><button class="link" type="button" data-act="copy-all">Copy all</button></div>
+      <div class="sidebar-scroll">
+        ${o.length ? o.map(row).join('') : `<div class="state">Nothing open on this page.${fine ? ' Select any text to start a thread.' : ''}</div>`}
+        ${r.length ? `<div class="more"><button class="link" type="button" data-act="toggle-resolved">${showResolved ? 'Hide resolved' : `Show ${r.length} resolved`}</button></div>` : ''}
+        ${showResolved && r.length ? `<div class="group">Resolved</div>${r.map(row).join('')}` : ''}
+      </div>`
+    el.addEventListener('click', (e) => {
+      const hit = e.target.closest('[data-act], [data-thread]')
+      if (!hit) return
+      if (hit.dataset.thread) return jump(Number(hit.dataset.thread))
+      const act = hit.dataset.act
+      if (act === 'close') toggleSidebar(false)
+      if (act === 'copy-all') copy(markdown(everything()), hit)
+      if (act === 'toggle-resolved') { showResolved = !showResolved; render() }
+    })
+    return el
+  }
+
+  let sidebarOpen = false
+  function toggleSidebar(on = !sidebarOpen) {
+    sidebarOpen = on
+    render()
+    if (on) document.querySelector('.sidebar .link')?.focus()
+    else document.getElementById('launcher').focus()
+  }
+
+  // The headline thread is always on screen in the hero, so it never floats.
+  function focusHero() {
+    openId = null
+    pending = null
+    render()
+    document.getElementById('docked').scrollIntoView({ block: 'center' })
+    document.getElementById('hero-reply')?.focus({ preventScroll: true })
+  }
+
+  function jump(id) {
+    const t = byId(id)
+    if (!t) return
+    if (innerWidth <= 480) sidebarOpen = false
+    if (id === HERO) return focusHero()
+    const r = rangeOf(t.start, t.end)
+    r.startContainer.parentElement.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    openId = id
+    setTimeout(render, 350)
+    render()
+  }
+
+  function render() {
+    paint()
+    const n = open().length
+    document.getElementById('count').textContent = n || ''
+    document.getElementById('launcher').setAttribute('aria-label', `Comments (${threads.length}), ${n} open`)
+
+    const hero = byId(HERO)
+    const dock = document.getElementById('docked')
+    const focusedId = document.activeElement?.id
+    dock.replaceChildren(threadView(hero, 'hero'))
+    dock.closest('.docked').querySelector('.docked-label').innerHTML = hero.resolved
+      ? '<span class="dot is-resolved" aria-hidden="true"></span>Resolved thread on the headline'
+      : '<span class="dot" aria-hidden="true"></span>Open thread on the headline'
+
+    layer.replaceChildren()
+    if (pending) place(composerView(pending), pending.rect())
+    else if (openId && byId(openId)) {
+      const t = byId(openId)
+      const rects = rangeOf(t.start, t.end).getClientRects()
+      place(threadView(t, 'float'), rects[rects.length - 1] || rangeOf(t.start, t.end).getBoundingClientRect())
+    }
+
+    document.getElementById('sidebar-slot').replaceChildren(...(sidebarOpen ? [sidebarView()] : []))
+    document.getElementById('md').textContent = markdown(everything())
+    renderChat()
+    if (focusedId && document.getElementById(focusedId) && document.activeElement !== document.getElementById(focusedId)) {
+      document.getElementById(focusedId).focus({ preventScroll: true })
+    }
+  }
+
+  function renderChat() {
+    const e = lastEvent
+    const live = threads.includes(e.thread)
+    const quote = e.thread.quote.replace(/\s+/g, ' ').trim()
+    document.getElementById('chat').replaceChildren($(`
+      <div class="bubble">
+        <p><b>${esc(e.who)}</b> ${e.kind === 'reply' ? 'replied on' : 'commented on'} <b>${esc(PROJECT)}</b><br><a class="src" href="#tc-${e.thread.id}">${esc(PAGE.replace(/^https?:\/\//, ''))}</a></p>
+        <p><i>“${esc(quote.length > 300 ? quote.slice(0, 299).trimEnd() + '…' : quote)}”</i></p>
+        <p>${esc(e.message)}</p>
+        <p>${live ? `<a href="#tc-${e.thread.id}">Open thread</a>` : '<span class="src">Thread deleted</span>'}</p>
+      </div>`))
+  }
+
+  const say = (msg) => { document.getElementById('live').textContent = msg }
+
+  /* ------------------------------------------------------------- selection -- */
+  function currentSelection() {
+    const sel = getSelection()
+    if (!sel.rangeCount || sel.isCollapsed) return null
+    const r = sel.getRangeAt(0)
+    if (!doc.contains(r.commonAncestorContainer)) return null
+    const start = toOffset(r.startContainer, r.startOffset)
+    const end = toOffset(r.endContainer, r.endOffset)
+    if (start == null || end == null || end <= start) return null
+    const quote = nodes.filter((e) => e.start < end && e.start + e.node.length > start)
+      .map((e) => e.node.data.slice(Math.max(0, start - e.start), end - e.start)).join('')
+    if (!quote.trim()) return null
+    const rects = r.getClientRects()
+    const last = rects[rects.length - 1] || r.getBoundingClientRect()
+    return { start, end, quote: quote.replace(/\s+/g, ' ').trim(), rect: () => rangeOf(start, end).getBoundingClientRect(), last }
+  }
+
+  let pill = null
+  function hidePill() { pill?.remove(); pill = null }
+  function showPill() {
+    hidePill()
+    if (!fine || pending) return
+    const s = currentSelection()
+    if (!s) return
+    pill = $(`<button class="pill" type="button">Comment</button>`)
+    pill.addEventListener('mousedown', (e) => e.preventDefault())
+    pill.addEventListener('click', () => startComment(s))
+    layer.append(pill)
+    pill.style.left = Math.min(s.last.right + scrollX + 6, innerWidth + scrollX - pill.offsetWidth - 12) + 'px'
+    pill.style.top = s.last.bottom + scrollY + 6 + 'px'
+  }
+  function startComment(s) {
+    hidePill()
+    openId = null
+    pending = s
+    render()
+    document.getElementById(myName ? 'new-message' : 'new-name')?.focus()
+  }
+
+  document.addEventListener('mouseup', (e) => { if (!e.target.closest?.('#tc, .docked')) setTimeout(showPill) })
+  document.addEventListener('keyup', (e) => { if (e.shiftKey && e.key.startsWith('Arrow')) showPill() })
+  document.addEventListener('selectionchange', () => { if (getSelection().isCollapsed) hidePill() })
+
+  // Smallest range under the pointer wins.
+  doc.addEventListener('click', (e) => {
+    if (!getSelection().isCollapsed || e.target.closest('[data-tc-ignore], a, button')) return
+    const pos = document.caretPositionFromPoint?.(e.clientX, e.clientY)
+    const cr = pos ? null : document.caretRangeFromPoint?.(e.clientX, e.clientY)
+    const node = pos ? pos.offsetNode : cr?.startContainer
+    const off = pos ? pos.offset : cr?.startOffset
+    if (!node) return
+    const o = toOffset(node, off)
+    if (o == null) return
+    const hit = open().filter((t) => t.start <= o && o < t.end).sort((a, b) => (a.end - a.start) - (b.end - b.start))[0]
+    if (!hit) return
+    if (hit.id === HERO) return focusHero()
+    pending = null
+    openId = hit.id
+    render()
+  })
+
+  document.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.popup, .pill, .sidebar, .launcher')) return
+    if (pending || openId) { pending = null; openId = null; render() }
+  })
+
+  document.addEventListener('keydown', (e) => {
+    const typing = e.target.closest?.('input, textarea, [contenteditable]')
+    if (e.key === 'Escape') {
+      if (pending || openId) { pending = null; openId = null; render() }
+      else if (sidebarOpen) toggleSidebar(false)
+      return
+    }
+    if ((e.key === 'c' || e.key === 'C') && !typing && !e.metaKey && !e.ctrlKey && !e.altKey && fine) {
+      const s = currentSelection()
+      if (s) { e.preventDefault(); startComment(s) }
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target.tagName === 'TEXTAREA') e.target.form.requestSubmit()
+  })
+
+  document.getElementById('launcher').addEventListener('click', () => toggleSidebar())
+  // Width only: a phone keyboard resizes the height and would wipe the draft.
+  let lastWidth = innerWidth
+  addEventListener('resize', () => {
+    if (innerWidth === lastWidth) return
+    lastWidth = innerWidth
+    hidePill()
+    if (openId || pending) render()
+  })
+
+  /* ---------------------------------------------------------------- page -- */
+  document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => {
+    const src = document.getElementById(b.dataset.copy)
+    copy(src.textContent, b).then((ok) => { if (!ok) getSelection().selectAllChildren(src) })
+  }))
+
+  function setTheme(pick) {
+    if (pick === 'auto') delete document.documentElement.dataset.theme
+    else document.documentElement.dataset.theme = pick
+    document.querySelectorAll('[data-theme-pick]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themePick === pick)))
+    const attr = pick === 'auto' ? '' : ` <span class="key">data-theme="${pick}"</span>`
+    document.getElementById('option').innerHTML = `&lt;script src="https://teammate.jaan.to/w/PROJECT_KEY.js"${attr}&gt;&lt;/script&gt;`
+  }
+  document.querySelectorAll('[data-theme-pick]').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.themePick)))
+  setTheme(document.documentElement.dataset.theme || 'auto')
+
+  function fromHash() {
+    const m = /^#tc-(\d+)$/.exec(location.hash)
+    if (m) jump(Number(m[1]))
+  }
+  addEventListener('hashchange', fromHash)
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#tc-"]')
+    if (a) { e.preventDefault(); jump(Number(a.getAttribute('href').slice(4))) }
+  })
+
+  render()
+  fromHash()
+})()
+</script>
