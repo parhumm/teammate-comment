@@ -1,6 +1,6 @@
 # Design
 
-The visual system for both surfaces. Tokens live in
+The visual system for both surfaces, plus the landing page. Tokens live in
 [`shared/tokens.ts`](shared/tokens.ts) and are the single source; this file explains them.
 
 ## Register
@@ -125,3 +125,15 @@ and reduces the pulse to a single flash.
 Zero threads means near-zero chrome: the launcher is a small neutral marker with no count and
 no highlights on the page. It earns amber only once something is open. Presence tracks
 activity, never the reverse.
+
+## The landing page
+
+The page at `/` is the one brand-register surface, and the only one with a colour of its own.
+It inks itself in green: headings, primary buttons and the mark use `--lp-ink`, and the code
+panels and closing band are drenched in `--lp-shade`. Those tokens live in
+[`server/src/views/landing.html`](server/src/views/landing.html), not in `shared/tokens.ts`,
+because nothing else may use them.
+
+The widget replica on that page stays on the real tokens, neutral, so what a visitor tries is
+what they will install. Amber keeps its one meaning there too: the green never marks a thread,
+and the drenched panels carry `data-tc-ignore` so a highlight never lands on them.

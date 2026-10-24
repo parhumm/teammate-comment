@@ -306,6 +306,7 @@ Confirm it came up:
 ssh you@your-vps systemctl is-active teammate       # expect: active
 ssh you@your-vps 'ss -ltnp | grep 8787'             # expect 127.0.0.1:8787, NOT 0.0.0.0:8787
 curl -s  https://teammate.jaan.to/healthz           # expect: ok
+curl -sI https://teammate.jaan.to/ | head -1        # expect: HTTP/2 200, the landing page
 curl -sI https://teammate.jaan.to/signin | head -1  # expect: HTTP/2 200
 ```
 
@@ -316,7 +317,8 @@ in an env file; only `ss` knows what the process actually did with them.
 
 ## Step 5 — First run
 
-1. Open `https://teammate.jaan.to` and create your account.
+1. Open `https://teammate.jaan.to/signup` and create your account. The root shows the landing
+   page until you are signed in.
 2. Create a project. One domain per project:
 
    | Commenting on | Project domain |
@@ -335,6 +337,9 @@ in an env file; only `ss` knows what the process actually did with them.
 
 4. Load the page. The project screen flips from `Waiting for first page view` to `Installed`.
 5. Select some text on that page. A **Comment** button appears.
+6. Optional: connect a Telegram bot on the project page (see the README). The VPS needs outbound
+   HTTPS to `api.telegram.org`; nothing inbound changes, because the panel polls rather than
+   receiving a webhook.
 
 ---
 
@@ -383,8 +388,12 @@ torn WAL. Use SQLite's own online backup. On the VPS, `crontab -e`:
 0 4 * * * sqlite3 /var/lib/teammate/comments.db ".backup '/var/lib/teammate/backup.db'" && gzip -f /var/lib/teammate/backup.db
 ```
 
-Copy `/var/lib/teammate/.secret` somewhere safe once. Losing it only signs everyone out, but it
-is a single small file and there is no way to regenerate the old one.
+The database holds each project's Telegram bot token, so treat the backup as a secret, not
+just as data.
+
+Copy `/var/lib/teammate/.secret` somewhere safe once. Losing it signs everyone out and changes
+the Telegram Start code, which only matters for a bot that is not connected yet. It is a single
+small file and there is no way to regenerate the old one.
 
 To restore: stop the service, `gunzip` over `comments.db`, delete any `-wal` and `-shm`
 siblings, start.
@@ -402,6 +411,7 @@ siblings, start.
 | Deploy prompts for a sudo password | sudoers path must be `/usr/bin/systemctl`, not `/bin/systemctl` |
 | `npm ci` fails on the VPS | A workspace manifest is missing; `widget/` must be rsynced whole |
 | Comments vanished after a deploy | `TC_DB` is pointing inside `/opt/teammate`; it must be `/var/lib/teammate` |
+| Telegram never connects, or shows `Couldn't reach Telegram` | The VPS cannot reach `api.telegram.org` over HTTPS. The project page shows the last error and when it happened |
 
 To read the environment the service actually got, ask the **process**, not systemd:
 

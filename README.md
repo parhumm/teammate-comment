@@ -5,6 +5,9 @@ threads, resolve, and navigate all feedback from one sidebar.
 
 Figma comments for text, without Figma.
 
+**Try it at <https://teammate.jaan.to>.** The landing page is itself a working replica of the
+widget: select any sentence on it and leave a comment.
+
 ```html
 <script src="https://your-host/w/PROJECT_KEY.js"></script>
 ```
@@ -58,9 +61,9 @@ Create the project with domain `localhost` and both demo pages will be allowed.
 | `DEMO_PORT` | `5173` | Demo static server |
 | `TC_API` | `http://localhost:8787` | Where the demo pages point their script tag |
 
-There is no automated test suite. The two demo pages are the manual harness, and they differ on
-purpose — one light editorial serif, one `color-scheme: dark` — so theme resolution and contrast
-get exercised against designs the widget does not control.
+`npm test` covers the Telegram message and the copied Markdown. The two demo pages are the
+manual harness, and they differ on purpose — one light editorial serif, one `color-scheme: dark`
+— so theme resolution and contrast get exercised against designs the widget does not control.
 
 ---
 
@@ -74,7 +77,9 @@ On any page carrying the snippet:
 | `c`, with text selected | The same thing without the mouse. Ignored while you are typing in a field |
 | Click a highlight | Opens its thread. Where highlights overlap the smallest range wins, being the most specific thing you could have been pointing at |
 | 💬 launcher, bottom right | Opens the sidebar: every thread on the page in document order, open ones counted on the badge |
-| `Esc` | Closes the composer or the open thread, then the sidebar |
+| **Copy** in a thread | Copies the thread as Markdown: page URL, a CSS path to the element the quote sits in, the quote, every comment. Made for pasting into an assistant that will apply the feedback to the page |
+| **Select** / **Copy all** in the sidebar | The same for a chosen set of threads, or for everything on the page |
+| `Esc` | Closes the composer or the open thread, then leaves select mode, then closes the sidebar |
 | `#tc-<id>` in the URL | Opens that thread and scrolls to it on load |
 
 Your name is asked once and kept locally. Threads take unlimited replies, resolve and reopen,
@@ -98,6 +103,15 @@ palette. Theme is resolved once, at load.
 Safari 17.2+, Firefox 140+. Below that the widget still loads and every thread is still
 reachable from the sidebar; the text simply is not painted. Creating a selection-anchored
 thread is desktop-only in V1, gated on `pointer: fine` — touch devices read, reply and resolve.
+
+**Telegram.** Each project can have its own bot. On the project page, paste a token from
+`@BotFather`, open the link it shows and press Start. That link carries a code derived from the
+project and its token, shown only on your project page, and only the chat that sends the code is
+adopted, so a stranger who finds the bot cannot become the recipient. For a team, add the bot to
+a group and send the `/start <code>` line the page shows. The panel notices by itself and sends a
+hello. From then on every new comment and reply lands in that chat with the page URL, the quoted
+text and the message. Delivery is fire-and-forget: a slow or blocked bot never delays a comment,
+and the last failure is shown on the project page.
 
 ---
 
@@ -131,6 +145,7 @@ any webpage ──> widget.js ──> HTTP API ──> SQLite
 | `/w/<key>.js` | The host page. One bundle serves every project, revalidated by ETag, CORS open to every origin |
 | `/api/*` | The widget. Every request carries `?key=`, and the requesting host is matched against the project's domain pattern before anything else runs |
 | `/healthz` | Your process supervisor. Liveness only: no auth, no database, no upstream call |
+| `/` | Visitors: the landing page, a static file whose comments never leave the tab. Signed-in owners go straight to `/projects` |
 | everything else | The owner panel: `/signin`, `/signup`, `/projects`, `/projects/:id`. Server-rendered HTML, no client JS |
 
 ```
@@ -147,7 +162,9 @@ server/src/
   domain.ts           forgiving input, strict matching
   api.ts              widget API, key + domain gated
   panel.ts            server-rendered owner panel
+  telegram.ts         per-project bot: connect, deliver, format
   views/layout.ts     panel shell and CSS
+  views/landing.html  the page at /, a client-only replica of the widget
 widget/src/
   index.tsx           key recovery, shadow root, theme, mount
   anchor.ts           flatten page, resolve anchors
@@ -155,7 +172,8 @@ widget/src/
   store.ts            state, optimistic writes
   theme.ts            three cheap reads, once at load
   App.tsx             selection, positioning, keyboard
-  components/         composer, thread popup, sidebar
+  copy.ts             threads as Markdown, for handing to an assistant
+  components/         composer, thread popup, sidebar, copy button
 demo/                 two host pages with deliberately different designs
 ```
 
@@ -216,3 +234,9 @@ Both are the first things to change before exposing a project to strangers. See
 | [DESIGN.md](DESIGN.md) | The visual system both surfaces share: tokens, theme resolution, the amber rule |
 | [DEPLOY.md](DEPLOY.md) | VPS, systemd, HTTPS, backups, and what to check when something is wrong |
 | [ROADMAP.md](ROADMAP.md) | Shipped in V1, what blocks public use, and what is deliberately not planned |
+
+---
+
+## License
+
+[MIT](LICENSE). Created by [Parhum Khoshbakht](https://www.linkedin.com/in/parhumm/).
