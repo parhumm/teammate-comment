@@ -337,6 +337,51 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 .state .btn { margin-top: var(--tc-s3); }
 
+/* ----------------------------------------------------------------- copy -- */
+
+/* Select and copy live in a thin tools row under the header: utilities, not
+   content, so they get the smallest type on the surface. */
+.sidebar-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-s3);
+  padding: var(--tc-s2) var(--tc-s3) var(--tc-s2) var(--tc-s4);
+  border-bottom: 1px solid var(--tc-border-subtle);
+  font-size: 12px;
+}
+.sidebar-tools > :nth-child(2) { margin-left: auto; }
+.sidebar-tools .link { font-size: 12px; }
+.link[disabled] { opacity: 0.4; cursor: default; }
+.link[disabled]:hover { color: var(--tc-text-3); }
+
+.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.pick {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--tc-action-bg);
+  cursor: pointer;
+}
+.thread.is-pick { grid-template-columns: auto auto 1fr; }
+.thread.is-pick .pick { grid-row: 1; grid-column: 1; margin-top: 3px; }
+.thread.is-pick .dot { grid-column: 2; }
+.thread.is-pick .excerpt, .thread.is-pick .replies { grid-column: 3; }
+
+.sidebar-fallback {
+  padding: var(--tc-s3) var(--tc-s3) var(--tc-s3) var(--tc-s4);
+  border-bottom: 1px solid var(--tc-border-subtle);
+}
+.byline .end { margin-left: auto; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Below the sidebar's own width, a right-edge panel stops making sense and it
    becomes a bottom sheet. */
 @media (max-width: 480px) {

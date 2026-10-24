@@ -176,6 +176,8 @@ export function App({ store, pulseLayer, reducedMotion, canCreate }: Props) {
       if (event.key === 'Escape') {
         if (state.draft || state.activeThreadId != null) {
           store.openThread(null)
+        } else if (state.selecting) {
+          store.setSelecting(false)
         } else if (state.sidebarOpen) {
           store.toggleSidebar(false)
         }
@@ -197,7 +199,7 @@ export function App({ store, pulseLayer, reducedMotion, canCreate }: Props) {
 
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [store, state.draft, state.activeThreadId, state.sidebarOpen, selection])
+  }, [store, state.draft, state.activeThreadId, state.selecting, state.sidebarOpen, selection])
 
   /* ------------------------------------------------------ deep link --- */
 

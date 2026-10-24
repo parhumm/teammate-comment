@@ -1,9 +1,12 @@
 import { useState } from 'preact/hooks'
 import type { Store, ThreadState } from '../store.ts'
+import { spanOf } from '../store.ts'
 import type { CommentDto } from '../api.ts'
 import { relativeTime, readableTime, absoluteTime } from '../../../shared/time.ts'
 import { MAX_MESSAGE } from '../../../shared/contract.ts'
+import { threadsMarkdown, elementFor } from '../copy.ts'
 import { Composer } from './Composer.tsx'
+import { useCopy, CopyFallback, CopyAnnouncer } from './Copy.tsx'
 
 interface Props {
   store: Store
@@ -121,6 +124,12 @@ function CommentRow({
 export function ThreadPopup({ store, thread, name, pending, failed }: Props) {
   const { dto } = thread
   const [replying, setReplying] = useState(false)
+  const clip = useCopy()
+
+  function copy() {
+    const element = elementFor(store.index, spanOf(thread))
+    clip.copy(threadsMarkdown(dto.page_url, [{ dto, element }]))
+  }
 
   return (
     <>
@@ -149,8 +158,15 @@ export function ThreadPopup({ store, thread, name, pending, failed }: Props) {
             }}
             onCancel={() => setReplying(false)}
           />
+        ) : clip.status === 'failed' ? (
+          <CopyFallback text={clip.text} onDone={clip.dismiss} />
         ) : (
           <div class="row-end">
+            {/* Markdown with the element path, for pasting into an assistant
+                that will apply the feedback to the page. */}
+            <button class="btn ghost" type="button" title="Copy as Markdown" onClick={copy}>
+              {clip.status === 'copied' ? 'Copied' : 'Copy'}
+            </button>
             <button
               class="btn ghost"
               type="button"
@@ -163,6 +179,7 @@ export function ThreadPopup({ store, thread, name, pending, failed }: Props) {
             </button>
           </div>
         )}
+        <CopyAnnouncer status={clip.status} />
       </div>
     </>
   )

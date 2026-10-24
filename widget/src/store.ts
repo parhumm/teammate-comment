@@ -34,6 +34,9 @@ export interface State {
   activeThreadId: number | null
   sidebarOpen: boolean
   showResolved: boolean
+  /** Sidebar multi-select, for copying several threads at once. */
+  selecting: boolean
+  selected: Set<number>
   /** Comment ids currently in flight, rendered at reduced opacity. */
   pending: Set<number>
   failed: Map<number, string>
@@ -55,6 +58,8 @@ export class Store {
     activeThreadId: null,
     sidebarOpen: false,
     showResolved: false,
+    selecting: false,
+    selected: new Set(),
     pending: new Set(),
     failed: new Map(),
   }
@@ -64,7 +69,7 @@ export class Store {
 
   constructor(
     private readonly api: Api,
-    private readonly pageUrl: string,
+    readonly pageUrl: string,
     private readonly excludeEl: Element,
   ) {}
 
@@ -132,7 +137,22 @@ export class Store {
   }
 
   toggleSidebar(open?: boolean): void {
-    this.set({ sidebarOpen: open ?? !this.state.sidebarOpen })
+    const sidebarOpen = open ?? !this.state.sidebarOpen
+    // Closing the sidebar ends a selection: the checkboxes went with it.
+    this.set(sidebarOpen ? { sidebarOpen } : { sidebarOpen, selecting: false, selected: new Set() })
+  }
+
+  setSelecting(selecting: boolean): void {
+    this.set({ selecting, selected: new Set() })
+  }
+
+  toggleSelected(id: number): void {
+    const { selected } = this.state
+    this.set({ selected: selected.has(id) ? withoutId(selected, id) : withId(selected, id) })
+  }
+
+  setSelected(ids: Iterable<number>): void {
+    this.set({ selected: new Set(ids) })
   }
 
   setShowResolved(showResolved: boolean): void {

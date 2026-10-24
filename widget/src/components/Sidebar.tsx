@@ -1,7 +1,9 @@
-import { useMemo } from 'preact/hooks'
+import { useEffect, useMemo, useRef } from 'preact/hooks'
 import type { Store, State, ThreadState } from '../store.ts'
 import { spanOf } from '../store.ts'
 import { relativeTime, readableTime } from '../../../shared/time.ts'
+import { threadsMarkdown, elementFor } from '../copy.ts'
+import { useCopy, CopyFallback, CopyAnnouncer } from './Copy.tsx'
 
 interface Props {
   store: Store
@@ -9,25 +11,36 @@ interface Props {
   onJump: (thread: ThreadState) => void
 }
 
+/**
+ * One row, two modes. Normally a button that jumps to the thread; while
+ * selecting, a label around a native checkbox so the whole row is the target
+ * and the keyboard gets Space for free.
+ */
 function ThreadRow({
   thread,
   active,
   onJump,
+  picked,
+  onPick,
 }: {
   thread: ThreadState
   active: boolean
   onJump: (t: ThreadState) => void
+  picked?: boolean
+  onPick?: (id: number) => void
 }) {
   const { dto } = thread
   const root = dto.comments[0]
   const replies = dto.comments.length - 1
+  const className = `thread${dto.resolved ? ' is-resolved' : ''}${active ? ' is-active' : ''}${
+    onPick ? ' is-pick' : ''
+  }`
 
-  return (
-    <button
-      type="button"
-      class={`thread${dto.resolved ? ' is-resolved' : ''}${active ? ' is-active' : ''}`}
-      onClick={() => onJump(thread)}
-    >
+  const body = (
+    <>
+      {onPick && (
+        <input type="checkbox" class="pick" checked={!!picked} onChange={() => onPick(dto.id)} />
+      )}
       <span class={`dot${dto.resolved ? ' is-resolved' : ''}`} aria-hidden="true" />
       <span class="head">
         <span class="who">{root?.name}</span>
@@ -44,12 +57,20 @@ function ThreadRow({
           {replies} {replies === 1 ? 'reply' : 'replies'}
         </span>
       )}
+    </>
+  )
+
+  return onPick ? (
+    <label class={className}>{body}</label>
+  ) : (
+    <button type="button" class={className} onClick={() => onJump(thread)}>
+      {body}
     </button>
   )
 }
 
 export function Sidebar({ store, state, onJump }: Props) {
-  const { threads, showResolved, activeThreadId } = state
+  const { threads, showResolved, activeThreadId, selecting, selected } = state
 
   // Document order, not chronological. The sidebar is a map of the page, and a
   // map sorted by time stops being a map.
@@ -81,6 +102,32 @@ export function Sidebar({ store, state, onJump }: Props) {
   const total = threads.length
   const visible = showResolved ? anchored : open
 
+  /* ------------------------------------------------------------ copy --- */
+
+  // What "all" means: what is on screen, in the order it is on screen.
+  // Resolved threads come along only when they are shown.
+  const copyable = [...visible, ...orphans]
+  const picked = copyable.filter((t) => selected.has(t.dto.id))
+  const allPicked = copyable.length > 0 && picked.length === copyable.length
+
+  const clip = useCopy()
+  const allRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (allRef.current) allRef.current.indeterminate = picked.length > 0 && !allPicked
+  }, [picked.length, allPicked])
+
+  function copyThreads(list: ThreadState[]) {
+    clip.copy(
+      threadsMarkdown(
+        store.pageUrl,
+        list.map((t) => ({ dto: t.dto, element: elementFor(store.index, spanOf(t)) })),
+      ),
+    )
+  }
+
+  const onPick = selecting ? (id: number) => store.toggleSelected(id) : undefined
+
   return (
     <aside class="sidebar" role="dialog" aria-label="Comments on this page">
       <div class="sidebar-top">
@@ -89,6 +136,52 @@ export function Sidebar({ store, state, onJump }: Props) {
           Close
         </button>
       </div>
+
+      {!state.error && copyable.length > 0 && (
+        <div class="sidebar-tools">
+          {selecting ? (
+            <>
+              <label class="check">
+                <input
+                  ref={allRef}
+                  type="checkbox"
+                  class="pick"
+                  checked={allPicked}
+                  onChange={() => store.setSelected(allPicked ? [] : copyable.map((t) => t.dto.id))}
+                />
+                Select all
+              </label>
+              <button
+                class="link"
+                type="button"
+                disabled={picked.length === 0}
+                onClick={() => copyThreads(picked)}
+              >
+                {clip.status === 'copied' ? 'Copied' : `Copy (${picked.length})`}
+              </button>
+              <button class="link" type="button" onClick={() => store.setSelecting(false)}>
+                Done
+              </button>
+            </>
+          ) : (
+            <>
+              <button class="link" type="button" onClick={() => store.setSelecting(true)}>
+                Select
+              </button>
+              <button class="link" type="button" onClick={() => copyThreads(copyable)}>
+                {clip.status === 'copied' ? 'Copied' : `Copy all (${copyable.length})`}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {clip.status === 'failed' && (
+        <div class="sidebar-fallback">
+          <CopyFallback text={clip.text} onDone={clip.dismiss} />
+        </div>
+      )}
+      <CopyAnnouncer status={clip.status} />
 
       <div class="sidebar-scroll">
         {state.error && (
@@ -134,6 +227,8 @@ export function Sidebar({ store, state, onJump }: Props) {
             thread={thread}
             active={thread.dto.id === activeThreadId}
             onJump={onJump}
+            picked={selected.has(thread.dto.id)}
+            onPick={onPick}
           />
         ))}
 
@@ -165,6 +260,8 @@ export function Sidebar({ store, state, onJump }: Props) {
                 thread={thread}
                 active={thread.dto.id === activeThreadId}
                 onJump={onJump}
+                picked={selected.has(thread.dto.id)}
+                onPick={onPick}
               />
             ))}
           </>
