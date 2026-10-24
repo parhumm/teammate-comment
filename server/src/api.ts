@@ -3,6 +3,7 @@ import { db, type Project, type Thread, type Comment } from './db.ts'
 import { hostMatches, hostFromHeader } from './domain.ts'
 import { normalizePageUrl } from '../../shared/url.ts'
 import { MAX_NAME, MAX_MESSAGE, MAX_QUOTE, MAX_CONTEXT } from '../../shared/contract.ts'
+import { notify } from './telegram.ts'
 
 type Env = { Variables: { project: Project } }
 
@@ -185,6 +186,7 @@ api.post('/threads', async (c) => {
   ) as Thread
 
   const comment = sql.insertComment.get(thread.id, name, message) as Comment
+  notify(project, thread, comment, 'new')
   return c.json({ thread: { ...thread, resolved: false, comments: [comment] } }, 201)
 })
 
@@ -204,6 +206,7 @@ api.post('/threads/:id/comments', async (c) => {
 
   const comment = sql.insertComment.get(id, name, message) as Comment
   sql.touchThread.run(id)
+  notify(project, thread, comment, 'reply')
   return c.json({ comment }, 201)
 })
 

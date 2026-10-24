@@ -64,6 +64,25 @@ CREATE INDEX IF NOT EXISTS idx_threads_page ON threads(project_id, page_url);
 CREATE INDEX IF NOT EXISTS idx_comments_thread ON comments(thread_id);
 `)
 
+/**
+ * Additive columns are applied as guarded ALTERs so an existing database picks
+ * them up on restart. Nothing here is destructive and nothing needs a version
+ * table: a column is either present or added.
+ */
+const projectColumns = new Set(
+  (db.prepare('PRAGMA table_info(projects)').all() as { name: string }[]).map((c) => c.name),
+)
+for (const column of [
+  'telegram_token',
+  'telegram_chat_id',
+  'telegram_chat_name',
+  'telegram_bot',
+  'telegram_error',
+  'telegram_error_at',
+]) {
+  if (!projectColumns.has(column)) db.exec(`ALTER TABLE projects ADD COLUMN ${column} TEXT`)
+}
+
 export interface User {
   id: number
   email: string
@@ -79,6 +98,13 @@ export interface Project {
   project_key: string
   first_seen_at: string | null
   created_at: string
+  /** Per-project Telegram delivery. Token present, chat empty means "waiting for Start". */
+  telegram_token: string | null
+  telegram_chat_id: string | null
+  telegram_chat_name: string | null
+  telegram_bot: string | null
+  telegram_error: string | null
+  telegram_error_at: string | null
 }
 
 export interface Thread {

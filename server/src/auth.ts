@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import type { Context } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
-import { db, type User } from './db.ts'
+import { db, type Project, type User } from './db.ts'
 
 const SECRET_PATH = process.env.TC_SECRET_FILE ?? resolve(process.cwd(), '../data/.secret')
 const COOKIE = 'tc_session'
@@ -54,6 +54,16 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 function sign(payload: string): string {
   return createHmac('sha256', SECRET).update(payload).digest('base64url')
+}
+
+/**
+ * Proof that the Telegram chat pressing Start belongs to the person looking at
+ * the panel: shown only on the project page, carried by the Start link, and
+ * required in the message before a chat is adopted. Derived rather than
+ * stored, so it changes with the token and needs no column.
+ */
+export function telegramStartCode(project: Project): string {
+  return sign(`telegram:${project.id}:${project.telegram_token}`).slice(0, 16)
 }
 
 export function startSession(c: Context, userId: number): void {

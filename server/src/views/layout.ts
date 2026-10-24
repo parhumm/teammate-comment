@@ -225,6 +225,11 @@ button.wide { width: 100%; }
 }
 .status.on { color: var(--tc-text-1); }
 .status.on .dot { border-color: var(--tc-text-1); background: var(--tc-text-1); }
+.status b { font-weight: 600; }
+
+.actions { display: flex; align-items: center; gap: var(--tc-s3); margin-top: var(--tc-s3); }
+.hint.danger { color: var(--tc-danger); margin-top: var(--tc-s2); }
+.field.token input { max-width: 480px; font-family: var(--tc-mono); font-size: 13px; }
 
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th {
