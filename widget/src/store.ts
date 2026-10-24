@@ -407,10 +407,6 @@ export function useStore(store: Store): State {
 
 /* ------------------------------------------------------------ queries -- */
 
-export function isOrphan(t: ThreadState): boolean {
-  return t.resolution.status === 'orphan'
-}
-
 /**
  * The one place the `Resolution` union is narrowed.
  *

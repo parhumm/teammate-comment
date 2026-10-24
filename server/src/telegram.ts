@@ -26,6 +26,11 @@ export class TelegramError extends Error {
 }
 
 const sql = {
+  setBot: db.prepare(
+    `UPDATE projects SET telegram_token = ?, telegram_bot = ?, telegram_chat_id = NULL,
+       telegram_chat_name = NULL, telegram_error = NULL, telegram_error_at = NULL
+     WHERE id = ? RETURNING *`,
+  ),
   setChat: db.prepare(
     `UPDATE projects SET telegram_chat_id = ?, telegram_chat_name = ?,
        telegram_error = NULL, telegram_error_at = NULL WHERE id = ?`,
@@ -36,6 +41,11 @@ const sql = {
   clearError: db.prepare(
     'UPDATE projects SET telegram_error = NULL, telegram_error_at = NULL WHERE id = ?',
   ),
+}
+
+/** Connecting a bot and disconnecting one both forget the old chat and its last error. */
+export function setBot(project: Project, token: string | null, bot: string | null): Project {
+  return sql.setBot.get(token, bot, project.id) as Project
 }
 
 interface Reply<T> {

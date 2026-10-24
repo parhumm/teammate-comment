@@ -14,7 +14,7 @@ import { normalizeDomain, parsePattern, describeMatch, DomainError } from './dom
 import { layout, escapeHtml } from './views/layout.ts'
 import { relativeTime, readableTime, agoPhrase } from '../../shared/time.ts'
 import { embedSnippet } from '../../shared/contract.ts'
-import { getMe, adoptChat, deliver, esc, TelegramError, TOKEN_PATTERN } from './telegram.ts'
+import { getMe, adoptChat, deliver, esc, setBot, TelegramError, TOKEN_PATTERN } from './telegram.ts'
 
 type Env = { Variables: { user: User } }
 
@@ -257,10 +257,10 @@ app.post('/projects', async (c) => {
   return c.redirect(`/projects/${project.id}`)
 })
 
+const ownedProject = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?')
+
 function projectFor(userId: number, id: string): Project | undefined {
-  return db
-    .prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?')
-    .get(Number(id), userId) as Project | undefined
+  return ownedProject.get(Number(id), userId) as Project | undefined
 }
 
 interface PageFlags {
@@ -356,7 +356,10 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
   </div>
 </div>
 
-${telegramSection(project, flags)}
+<div class="section" id="telegram">
+  <h2>Telegram</h2>
+  ${telegramSection(project, flags)}
+</div>
 
 <div class="section">
   <h2>Pages</h2>
@@ -389,8 +392,6 @@ function telegramSection(project: Project, flags: PageFlags): string {
 
   if (!project.telegram_token) {
     return `
-<div class="section" id="telegram">
-  <h2>Telegram</h2>
   <p class="lede">Get a message the moment someone comments.</p>
   ${flags.tgError ? `<div class="error">${escapeHtml(flags.tgError)}</div>` : ''}
   <form method="post" action="${base}">
@@ -403,8 +404,7 @@ function telegramSection(project: Project, flags: PageFlags): string {
         send <code>/newbot</code>, and paste the token it gives you.</p>
     </div>
     <button type="submit">Connect</button>
-  </form>
-</div>`
+  </form>`
   }
 
   if (!project.telegram_chat_id) {
@@ -412,8 +412,6 @@ function telegramSection(project: Project, flags: PageFlags): string {
     // owner typing anything. A group gets the same line typed by hand.
     const code = telegramStartCode(project)
     return `
-<div class="section" id="telegram">
-  <h2>Telegram</h2>
   <div class="status">
     <span class="dot"></span>
     <span>Token saved. Open ${botLink(`${botUrl}?start=${code}`)} and press <b>Start</b>.
@@ -425,7 +423,6 @@ function telegramSection(project: Project, flags: PageFlags): string {
     <form method="post" action="${base}/check"><button class="ghost" type="submit">Check again</button></form>
     <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
   </div>
-</div>
 <script>
 (function () {
   var timer = setInterval(function () {
@@ -440,8 +437,6 @@ function telegramSection(project: Project, flags: PageFlags): string {
   }
 
   return `
-<div class="section" id="telegram">
-  <h2>Telegram</h2>
   <div class="status on">
     <span class="dot"></span>
     <span>Connected. Messages go to <b>${escapeHtml(project.telegram_chat_name)}</b> via ${botLink(botUrl)}.</span>
@@ -450,8 +445,7 @@ function telegramSection(project: Project, flags: PageFlags): string {
   <div class="actions">
     <form method="post" action="${base}/test"><button class="ghost" type="submit">Send test</button></form>
     <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
-  </div>
-</div>`
+  </div>`
 }
 
 app.post('/projects/:id/telegram', async (c) => {
@@ -475,14 +469,10 @@ app.post('/projects/:id/telegram', async (c) => {
     return reject(rejected ? 'Telegram did not accept that token.' : "Couldn't reach Telegram. Try again in a moment.")
   }
 
-  db.prepare(
-    `UPDATE projects SET telegram_token = ?, telegram_bot = ?, telegram_chat_id = NULL,
-       telegram_chat_name = NULL, telegram_error = NULL, telegram_error_at = NULL WHERE id = ?`,
-  ).run(token, me.username, project.id)
+  const saved = setBot(project, token, me.username)
 
   // Drains whatever the bot received before the owner could have seen the
   // code, so a stale message from anyone else is gone before the first check.
-  const saved = projectFor(user.id, c.req.param('id'))!
   await adoptChat(saved, telegramStartCode(saved))
   return c.redirect(`/projects/${project.id}#telegram`)
 })
@@ -511,13 +501,11 @@ app.post('/projects/:id/telegram/test', async (c) => {
 })
 
 app.post('/projects/:id/telegram/disconnect', (c) => {
-  const id = Number(c.req.param('id'))
-  db.prepare(
-    `UPDATE projects SET telegram_token = NULL, telegram_bot = NULL, telegram_chat_id = NULL,
-       telegram_chat_name = NULL, telegram_error = NULL, telegram_error_at = NULL
-     WHERE id = ? AND user_id = ?`,
-  ).run(id, c.get('user').id)
-  return c.redirect(`/projects/${id}#telegram`)
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project) return c.notFound()
+
+  setBot(project, null, null)
+  return c.redirect(`/projects/${project.id}#telegram`)
 })
 
 app.post('/projects/:id/delete', (c) => {
