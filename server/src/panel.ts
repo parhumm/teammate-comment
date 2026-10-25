@@ -476,14 +476,22 @@ function slackSection(project: Project, flags: PageFlags): string {
     return `
   <p class="lede">Post every new comment to a Slack channel.</p>
   ${flags.slackError ? `<div class="error">${escapeHtml(flags.slackError)}</div>` : ''}
+  <ol class="steps">
+    <li><a href="${escapeHtml(slack.NEW_APP_URL)}" target="_blank" rel="noreferrer">Create the Slack app</a>. It opens
+      filled in: pick your workspace, then press <b>Next</b> and <b>Create</b>.</li>
+    <li>In the app's sidebar open <b>Incoming Webhooks</b>, press <b>Add New Webhook</b>, choose a channel and
+      press <b>Allow</b>.</li>
+    <li>Copy the webhook URL and paste it below.</li>
+  </ol>
   <form method="post" action="${base}">
     <div class="field token">
       <label for="webhook">Webhook URL</label>
       <input id="webhook" name="webhook" type="text" placeholder="https://hooks.slack.com/services/..." required
              autocomplete="off" spellcheck="false" autocapitalize="off"
              value="${escapeHtml(flags.webhook ?? '')}">
-      <p class="hint">Create an app at <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer">api.slack.com/apps</a>,
-        turn on Incoming Webhooks, add one to a channel, and paste its URL.</p>
+      <p class="hint">Already have a Slack app? Open it at
+        <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer">api.slack.com/apps</a>,
+        turn on <b>Incoming Webhooks</b>, and start from step 2.</p>
     </div>
     <button type="submit">Connect</button>
   </form>`

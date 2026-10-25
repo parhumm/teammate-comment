@@ -230,6 +230,9 @@ button.wide { width: 100%; }
 .actions { display: flex; align-items: center; gap: var(--tc-s3); margin-top: var(--tc-s3); }
 .hint.danger { color: var(--tc-danger); margin-top: var(--tc-s2); }
 .field.token input { max-width: 480px; font-family: var(--tc-mono); font-size: 13px; }
+.steps { margin: 0 0 var(--tc-s4); padding-left: 20px; font-size: 13px; color: var(--tc-text-2); }
+.steps li { margin-bottom: var(--tc-s1); }
+.steps b { color: var(--tc-text-1); font-weight: 500; }
 
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th {

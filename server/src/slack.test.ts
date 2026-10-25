@@ -1,6 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { slackMessage, isWebhook } from './slack.ts'
+import { slackMessage, isWebhook, NEW_APP_URL } from './slack.ts'
+
+test('the Create link carries a manifest Slack accepts: the webhook scope needs a bot user', () => {
+  const url = new URL(NEW_APP_URL)
+  assert.equal(url.origin + url.pathname, 'https://api.slack.com/apps')
+  const manifest = JSON.parse(url.searchParams.get('manifest_json')!)
+  assert.deepEqual(manifest.oauth_config.scopes.bot, ['incoming-webhook'])
+  assert.ok(manifest.features.bot_user.display_name)
+  assert.ok(manifest.display_information.name.length <= 35)
+})
 
 test('message escapes mrkdwn, trims the quote, and deep-links the thread', () => {
   const text = slackMessage({

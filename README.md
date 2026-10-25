@@ -114,9 +114,10 @@ hello. From then on every new comment and reply lands in that chat with the page
 text and the message. Delivery is fire-and-forget: a slow or blocked bot never delays a comment,
 and the last failure is shown on the project page.
 
-**Slack.** Each project can also post to one Slack channel. Create an app at
-`api.slack.com/apps`, turn on Incoming Webhooks, add one to a channel, and paste its URL on the
-project page. Slack binds a webhook to its channel when you create it, so there is no Start step:
+**Slack.** Each project can also post to one Slack channel. On the project page, press **Create
+the Slack app**: it opens Slack with a ready-made app (the `incoming-webhook` scope and nothing
+else), so you only pick a workspace. In that app open **Incoming Webhooks**, press **Add New
+Webhook**, choose the channel, and paste the URL back on the project page. Slack binds a webhook to its channel when you create it, so there is no Start step:
 the panel posts a hello, and only saves the URL if Slack accepts it. Only
 `https://hooks.slack.com/services/...` URLs are taken, so the field can never be used to make the
 server fetch anything else. Comments, delivery and failures work exactly as for Telegram, and a

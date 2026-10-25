@@ -15,6 +15,19 @@ const TIMEOUT_MS = 5000
 
 const WEBHOOK_PATH = /^\/services\/T\w+\/B\w+\/\w+$/
 
+/**
+ * Opens Slack's "Create from a manifest" dialog already filled in, so the owner
+ * only picks a workspace. Slack refuses any OAuth scope without a bot user, so
+ * one is declared even though only the webhook ever posts.
+ */
+const MANIFEST = {
+  display_information: { name: 'Teammate Comment', description: 'Posts new comments and replies to one channel.' },
+  features: { bot_user: { display_name: 'Teammate Comment' } },
+  oauth_config: { scopes: { bot: ['incoming-webhook'] } },
+  settings: { incoming_webhooks: { incoming_webhooks_enabled: true } },
+}
+export const NEW_APP_URL = `https://api.slack.com/apps?new_app=1&manifest_json=${encodeURIComponent(JSON.stringify(MANIFEST))}`
+
 export function isWebhook(url: string): boolean {
   return url.startsWith(`${HOOKS}/`) && WEBHOOK_PATH.test(url.slice(HOOKS.length))
 }
