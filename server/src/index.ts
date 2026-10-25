@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 import { api } from './api.ts'
 import { panel } from './panel.ts'
@@ -121,6 +123,12 @@ app.get('/healthz', (c) => c.text('ok'))
 // The link-preview card the landing page names in og:image; same guard caveat.
 const OG = readFileSync(new URL('./views/og.png', import.meta.url))
 app.get('/og.png', (c) => c.body(OG, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }))
+
+// The landing page's promo video and its poster. serveStatic answers Range requests, which Safari needs before it plays an mp4.
+for (const name of ['promo.mp4', 'promo.jpg']) {
+  const path = fileURLToPath(new URL(`./views/${name}`, import.meta.url))
+  app.get(`/${name}`, serveStatic({ path, onFound: (_p, c) => c.header('Cache-Control', 'public, max-age=86400') }))
+}
 
 app.route('/', panel)
 

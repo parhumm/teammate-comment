@@ -343,6 +343,16 @@ h3 {
 p { margin: 0 0 16px; max-width: var(--measure); }
 .prose > :last-child { margin-bottom: 0; }
 .note { font-size: 16px; color: var(--tc-text-2); }
+.promo {
+  display: block;
+  width: 100%;
+  max-width: 432px;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-r-panel);
+  background: var(--tc-surface-1);
+}
 code { font-family: var(--tc-mono); font-size: 0.82em; }
 
 /* --------------------------------------------------------------- code -- */
@@ -541,6 +551,17 @@ figure + .channel { margin-top: 20px; }
       </aside>
     </div>
   </div>
+
+  <section id="watch" class="gutter">
+    <div class="wrap split">
+      <div class="prose">
+        <h2>The whole review in 50 seconds</h2>
+        <p id="watch-desc">Select a sentence and comment, reply, resolve as the owner, read every thread in the sidebar, copy them as Markdown, and get each new comment in Slack or Telegram. Filmed on the real widget, on a demo article.</p>
+        <p class="note">The video has no sound. Every step is captioned on screen.</p>
+      </div>
+      <video class="promo" src="https://teammate.jaan.to/promo.mp4" poster="https://teammate.jaan.to/promo.jpg" width="864" height="1080" controls muted playsinline preload="none" aria-describedby="watch-desc"></video>
+    </div>
+  </section>
 
   <section id="uses" class="gutter">
     <div class="wrap">
