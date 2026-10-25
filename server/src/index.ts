@@ -118,6 +118,10 @@ app.get(`/w/:key{[${KEY_CHARS}]+\\.js}`, (c) => {
  */
 app.get('/healthz', (c) => c.text('ok'))
 
+// The link-preview card the landing page names in og:image; same guard caveat.
+const OG = readFileSync(new URL('./views/og.png', import.meta.url))
+app.get('/og.png', (c) => c.body(OG, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }))
+
 app.route('/', panel)
 
 serve({ fetch: app.fetch, port: PORT, hostname: BIND }, (info) => {

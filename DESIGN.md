@@ -134,6 +134,8 @@ panels and closing band are drenched in `--lp-shade`. Those tokens live in
 [`server/src/views/landing.html`](server/src/views/landing.html), not in `shared/tokens.ts`,
 because nothing else may use them.
 
-The widget replica on that page stays on the real tokens, neutral, so what a visitor tries is
-what they will install. Amber keeps its one meaning there too: the green never marks a thread,
-and the drenched panels carry `data-tc-ignore` so a highlight never lands on them.
+The page runs the real widget, so what a visitor tries is what they will install, and every
+comment left there is public. Amber keeps its one meaning there too: the green never marks a
+thread. The drenched panels override the highlight ramp with the dark one, because the light
+ramp under their light text would be unreadable. The hero thread and the Telegram and Slack
+messages are static figures, drawn in each product's own chrome.

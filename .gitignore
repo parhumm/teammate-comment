@@ -7,3 +7,5 @@ widget/dist/
 .env
 .playwright-mcp/
 *.png
+# The server reads this one at startup, so a fresh clone needs it.
+!server/src/views/og.png

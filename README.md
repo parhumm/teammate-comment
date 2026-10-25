@@ -3,10 +3,10 @@
 Add one script tag to any webpage and let people select text, comment anonymously, discuss in
 threads, resolve, and navigate all feedback from one sidebar.
 
-Figma comments for text, without Figma.
+Comment on any web page, like a Google Doc: websites, blogs, docs and HTML reports.
 
-**Try it at <https://teammate.jaan.to>.** The landing page is itself a working replica of the
-widget: select any sentence on it and leave a comment.
+**Try it at <https://teammate.jaan.to>.** The landing page runs the widget itself: select any
+sentence on it and leave a comment.
 
 ```html
 <script src="https://your-host/w/PROJECT_KEY.js"></script>
@@ -101,8 +101,9 @@ palette. Theme is resolved once, at load.
 
 **Browser support.** Painted highlights need the CSS Custom Highlight API: Chrome 105+,
 Safari 17.2+, Firefox 140+. Below that the widget still loads and every thread is still
-reachable from the sidebar; the text simply is not painted. Creating a selection-anchored
-thread is desktop-only in V1, gated on `pointer: fine` — touch devices read, reply and resolve.
+reachable from the sidebar; the text simply is not painted. On touch the native selection
+callout cannot be suppressed, so the Comment pill docks at the bottom of the screen instead of
+following the selection.
 
 **Telegram.** Each project can have its own bot. On the project page, paste a token from
 `@BotFather`, open the link it shows and press Start. That link carries a code derived from the
