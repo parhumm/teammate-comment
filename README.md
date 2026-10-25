@@ -81,10 +81,12 @@ On any page carrying the snippet:
 | **Select** / **Copy all** in the sidebar | The same for a chosen set of threads, or for everything on the page |
 | `Esc` | Closes the composer or the open thread, then leaves select mode, then closes the sidebar |
 | `#tc-<id>` in the URL | Opens that thread and scrolls to it on load |
+| `#tc-owner=<key>` in the URL | Signs this browser in as the project owner, then disappears from the address bar. The panel adds it to every page link |
 
-Your name is asked once and kept locally. Threads take unlimited replies, resolve and reopen,
-and comments can be edited or deleted. Deleting the last comment in a thread deletes the thread,
-because a highlight with nothing behind it has no reason to exist.
+Your name is asked once and kept locally, with an optional email that only reaches the owner's
+Telegram and Slack notices, never the page. Threads take unlimited replies. The owner can
+resolve and reopen threads and edit or delete comments. Deleting the last comment in a thread
+deletes the thread, because a highlight with nothing behind it has no reason to exist.
 
 Comments belong to a page, not to a link: `?utm_source=x` and `#section` resolve to the same
 page as the bare URL.
@@ -225,14 +227,19 @@ never borrowed for buttons, focus, emphasis, or install status.
 
 ## Trust model
 
-**Anyone can edit or delete anything.** V1 is built for private projects with trusted
-commenters. There are no per-comment ownership tokens and no moderation mode.
+**Anyone who can open the page can read and comment. Only the owner resolves, edits and
+deletes.** The owner key is derived from the server secret and the project key, opens the
+widget's owner controls from a link in the panel, and is kept in that site's `localStorage`.
+It rides in an `Authorization` header and is only ever linked to pages on the project's
+domain. It cannot be rotated from the panel yet. Comments appear at once: there is no approval
+queue and no spam filter, so V1 is still for private projects with trusted commenters.
 
 The domain allowlist is a scoping tool, not a security boundary. It keeps a key pasted on the
 wrong site from writing into your project, and it is enforced against `Origin` or `Referer` —
 headers a browser sets honestly and a script does not have to.
 
-Both are the first things to change before exposing a project to strangers. See
+The domain check and the missing approval queue are the first things to change before
+exposing a project to strangers. See
 [ROADMAP.md](ROADMAP.md).
 
 ---
