@@ -1,5 +1,5 @@
-import { db, type Project, type Thread, type Comment } from './db.ts'
-import { noticeFor, cut, type Notice } from './telegram.ts'
+import { db, type Project } from './db.ts'
+import { cut, wording, type Notice } from './telegram.ts'
 
 /**
  * One incoming webhook per project. Slack binds a webhook to its channel when
@@ -12,9 +12,6 @@ import { noticeFor, cut, type Notice } from './telegram.ts'
  */
 const HOOKS = process.env.TC_SLACK_HOOKS ?? 'https://hooks.slack.com'
 const TIMEOUT_MS = 5000
-
-const MAX_QUOTE = 300
-const MAX_MESSAGE = 1500
 
 const WEBHOOK_PATH = /^\/services\/T\w+\/B\w+\/\w+$/
 
@@ -67,7 +64,7 @@ export async function deliver(project: Project, text: string): Promise<void> {
   if (!project.slack_webhook) return
   try {
     await post(project.slack_webhook, text)
-    sql.clearError.run(project.id)
+    if (project.slack_error) sql.clearError.run(project.id)
   } catch (err) {
     sql.setError.run(err instanceof SlackError ? err.message : 'Unexpected error.', project.id)
     throw err
@@ -75,9 +72,9 @@ export async function deliver(project: Project, text: string): Promise<void> {
 }
 
 /** Fire-and-forget from the write path. A slow or dead webhook never delays a comment. */
-export function notify(project: Project, thread: Thread, comment: Comment, kind: 'new' | 'reply'): void {
+export function notify(project: Project, n: Notice): void {
   if (!project.slack_webhook) return
-  void deliver(project, slackMessage(noticeFor(project, thread, comment, kind))).catch(() => {})
+  void deliver(project, slackMessage(n)).catch(() => {})
 }
 
 /**
@@ -94,9 +91,7 @@ function link(url: string, label: string): string {
 }
 
 export function slackMessage(n: Notice): string {
-  const verb = n.kind === 'reply' ? 'replied on' : 'commented on'
-  const where = n.pageUrl.replace(/^https?:\/\//, '')
-  const quote = cut(n.quote.replace(/\s+/g, ' ').trim(), MAX_QUOTE)
+  const { verb, where, quote, message } = wording(n)
 
   return [
     `*${esc(n.who)}* ${verb} *${esc(n.project)}*`,
@@ -104,7 +99,7 @@ export function slackMessage(n: Notice): string {
     '',
     `> _“${esc(quote)}”_`,
     '',
-    esc(cut(n.message.trim(), MAX_MESSAGE)),
+    esc(message),
     '',
     link(`${n.pageUrl}#tc-${n.threadId}`, 'Open thread'),
   ].join('\n')

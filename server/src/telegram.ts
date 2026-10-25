@@ -159,7 +159,7 @@ export async function deliver(project: Project, text: string): Promise<void> {
   if (!project.telegram_token || !project.telegram_chat_id) return
   try {
     await send(project.telegram_token, project.telegram_chat_id, text)
-    sql.clearError.run(project.id)
+    if (project.telegram_error) sql.clearError.run(project.id)
   } catch (err) {
     sql.setError.run(messageOf(err), project.id)
     throw err
@@ -167,9 +167,9 @@ export async function deliver(project: Project, text: string): Promise<void> {
 }
 
 /** Fire-and-forget from the write path. A slow or dead bot never delays a comment. */
-export function notify(project: Project, thread: Thread, comment: Comment, kind: 'new' | 'reply'): void {
+export function notify(project: Project, n: Notice): void {
   if (!project.telegram_token || !project.telegram_chat_id) return
-  void deliver(project, telegramMessage(noticeFor(project, thread, comment, kind))).catch(() => {})
+  void deliver(project, telegramMessage(n)).catch(() => {})
 }
 
 export interface Notice {
@@ -204,10 +204,18 @@ export function cut(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value
 }
 
+/** The plain words, trimmed to fit, that each channel wraps in its own markup. */
+export function wording(n: Notice) {
+  return {
+    verb: n.kind === 'reply' ? 'replied on' : 'commented on',
+    where: n.pageUrl.replace(/^https?:\/\//, ''),
+    quote: cut(n.quote.replace(/\s+/g, ' ').trim(), MAX_QUOTE),
+    message: cut(n.message.trim(), MAX_MESSAGE),
+  }
+}
+
 export function telegramMessage(n: Notice): string {
-  const verb = n.kind === 'reply' ? 'replied on' : 'commented on'
-  const where = n.pageUrl.replace(/^https?:\/\//, '')
-  const quote = cut(n.quote.replace(/\s+/g, ' ').trim(), MAX_QUOTE)
+  const { verb, where, quote, message } = wording(n)
 
   return [
     `<b>${esc(n.who)}</b> ${verb} <b>${esc(n.project)}</b>`,
@@ -215,7 +223,7 @@ export function telegramMessage(n: Notice): string {
     '',
     `<i>“${esc(quote)}”</i>`,
     '',
-    esc(cut(n.message.trim(), MAX_MESSAGE)),
+    esc(message),
     '',
     `<a href="${esc(n.pageUrl)}#tc-${n.threadId}">Open thread</a>`,
   ].join('\n')

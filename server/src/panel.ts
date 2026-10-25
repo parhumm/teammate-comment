@@ -270,15 +270,14 @@ interface PageFlags {
   token?: string
   slackError?: string
   webhook?: string
-  /** Which channel just sent a test message. */
-  sent?: 'telegram' | 'slack'
+  /** Which channel just sent a test message. Each section only answers to its own name. */
+  sent?: string
 }
 
 app.get('/projects/:id', (c) => {
   const project = projectFor(c.get('user').id, c.req.param('id'))
   if (!project) return c.notFound()
-  const sent = c.req.query('sent')
-  return c.html(projectPage(c, project, { sent: sent === 'telegram' || sent === 'slack' ? sent : undefined }))
+  return c.html(projectPage(c, project, { sent: c.req.query('sent') }))
 })
 
 function projectPage(c: { req: { url: string } }, project: Project, flags: PageFlags = {}): string {
@@ -397,12 +396,6 @@ function telegramSection(project: Project, flags: PageFlags): string {
     project.telegram_bot
       ? `<a href="${href}" target="_blank" rel="noreferrer">@${escapeHtml(project.telegram_bot)}</a>`
       : ''
-  const failed = (what: string) =>
-    project.telegram_error
-      ? `<p class="hint danger">${what} failed ${escapeHtml(agoPhrase(project.telegram_error_at))}: ${escapeHtml(
-          project.telegram_error,
-        )}</p>`
-      : ''
 
   if (!project.telegram_token) {
     return `
@@ -432,7 +425,7 @@ function telegramSection(project: Project, flags: PageFlags): string {
       For a team, add the bot to a group and send <code>/start ${code}</code> there.
       This page updates on its own.</span>
   </div>
-  ${failed('Last check')}
+  ${failed('Last check', project.telegram_error, project.telegram_error_at)}
   <div class="actions">
     <form method="post" action="${base}/check"><button class="ghost" type="submit">Check again</button></form>
     <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
@@ -455,7 +448,17 @@ function telegramSection(project: Project, flags: PageFlags): string {
     <span class="dot"></span>
     <span>Connected. Messages go to <b>${escapeHtml(project.telegram_chat_name)}</b> via ${botLink(botUrl)}.</span>
   </div>
-  ${flags.sent === 'telegram' ? '<p class="hint">Test message sent.</p>' : failed('Last message')}
+  ${connectedFooter(base, flags.sent === 'telegram', project.telegram_error, project.telegram_error_at)}`
+}
+
+function failed(what: string, error: string | null, at: string | null): string {
+  return error ? `<p class="hint danger">${what} failed ${escapeHtml(agoPhrase(at))}: ${escapeHtml(error)}</p>` : ''
+}
+
+/** A connected channel's last test or failure, then its two actions. */
+function connectedFooter(base: string, sent: boolean, error: string | null, at: string | null): string {
+  return `
+  ${sent ? '<p class="hint">Test message sent.</p>' : failed('Last message', error, at)}
   <div class="actions">
     <form method="post" action="${base}/test"><button class="ghost" type="submit">Send test</button></form>
     <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
@@ -491,19 +494,7 @@ function slackSection(project: Project, flags: PageFlags): string {
     <span class="dot"></span>
     <span>Connected. Messages go to the channel this webhook was made for.</span>
   </div>
-  ${
-    flags.sent === 'slack'
-      ? '<p class="hint">Test message sent.</p>'
-      : project.slack_error
-        ? `<p class="hint danger">Last message failed ${escapeHtml(agoPhrase(project.slack_error_at))}: ${escapeHtml(
-            project.slack_error,
-          )}</p>`
-        : ''
-  }
-  <div class="actions">
-    <form method="post" action="${base}/test"><button class="ghost" type="submit">Send test</button></form>
-    <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
-  </div>`
+  ${connectedFooter(base, flags.sent === 'slack', project.slack_error, project.slack_error_at)}`
 }
 
 app.post('/projects/:id/telegram', async (c) => {
