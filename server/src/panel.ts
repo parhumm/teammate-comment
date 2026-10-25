@@ -15,6 +15,7 @@ import { layout, escapeHtml } from './views/layout.ts'
 import { relativeTime, readableTime, agoPhrase } from '../../shared/time.ts'
 import { embedSnippet } from '../../shared/contract.ts'
 import { getMe, adoptChat, deliver, esc, setBot, TelegramError, TOKEN_PATTERN } from './telegram.ts'
+import * as slack from './slack.ts'
 
 type Env = { Variables: { user: User } }
 
@@ -267,13 +268,17 @@ interface PageFlags {
   /** A rejected token, shown above the field with the typed value kept. */
   tgError?: string
   token?: string
-  sent?: boolean
+  slackError?: string
+  webhook?: string
+  /** Which channel just sent a test message. */
+  sent?: 'telegram' | 'slack'
 }
 
 app.get('/projects/:id', (c) => {
   const project = projectFor(c.get('user').id, c.req.param('id'))
   if (!project) return c.notFound()
-  return c.html(projectPage(c, project, { sent: c.req.query('sent') === '1' }))
+  const sent = c.req.query('sent')
+  return c.html(projectPage(c, project, { sent: sent === 'telegram' || sent === 'slack' ? sent : undefined }))
 })
 
 function projectPage(c: { req: { url: string } }, project: Project, flags: PageFlags = {}): string {
@@ -357,8 +362,13 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
 </div>
 
 <div class="section" id="telegram">
-  <h2>Telegram</h2>
+  <h2>${TELEGRAM_LOGO}Telegram</h2>
   ${telegramSection(project, flags)}
+</div>
+
+<div class="section" id="slack">
+  <h2>${SLACK_LOGO}Slack</h2>
+  ${slackSection(project, flags)}
 </div>
 
 <div class="section">
@@ -369,6 +379,10 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
     { title: project.name, signedIn: true },
   )
 }
+
+/** Each service's own mark, in its own colours. Decorative: the heading already names it. */
+const TELEGRAM_LOGO = `<svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#26A5E4"/><path fill="#fff" d="M16.906 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>`
+const SLACK_LOGO = `<svg class="logo" viewBox="0 0 127 127" aria-hidden="true"><path fill="#E01E5A" d="M27.2 80c0 7.3-5.9 13.2-13.2 13.2C6.7 93.2.8 87.3.8 80c0-7.3 5.9-13.2 13.2-13.2h13.2V80zm6.6 0c0-7.3 5.9-13.2 13.2-13.2 7.3 0 13.2 5.9 13.2 13.2v33c0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V80z"/><path fill="#36C5F0" d="M47 27c-7.3 0-13.2-5.9-13.2-13.2C33.8 6.5 39.7.6 47 .6c7.3 0 13.2 5.9 13.2 13.2V27H47zm0 6.7c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H13.9C6.6 60.1.7 54.2.7 46.9c0-7.3 5.9-13.2 13.2-13.2H47z"/><path fill="#2EB67D" d="M99.9 46.9c0-7.3 5.9-13.2 13.2-13.2 7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H99.9V46.9zm-6.6 0c0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V13.8C66.9 6.5 72.8.6 80.1.6c7.3 0 13.2 5.9 13.2 13.2v33.1z"/><path fill="#ECB22E" d="M80.1 99.8c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V99.8h13.2zm0-6.6c-7.3 0-13.2-5.9-13.2-13.2 0-7.3 5.9-13.2 13.2-13.2h33.1c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H80.1z"/></svg>`
 
 /**
  * Three states, one section: no token, token but nobody has pressed Start,
@@ -441,7 +455,51 @@ function telegramSection(project: Project, flags: PageFlags): string {
     <span class="dot"></span>
     <span>Connected. Messages go to <b>${escapeHtml(project.telegram_chat_name)}</b> via ${botLink(botUrl)}.</span>
   </div>
-  ${flags.sent ? '<p class="hint">Test message sent.</p>' : failed('Last message')}
+  ${flags.sent === 'telegram' ? '<p class="hint">Test message sent.</p>' : failed('Last message')}
+  <div class="actions">
+    <form method="post" action="${base}/test"><button class="ghost" type="submit">Send test</button></form>
+    <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
+  </div>`
+}
+
+/**
+ * Two states: no webhook, connected. A webhook is saved only after its hello
+ * reached the channel, so there is nothing in between to wait on.
+ */
+function slackSection(project: Project, flags: PageFlags): string {
+  const base = `/projects/${project.id}/slack`
+
+  if (!project.slack_webhook) {
+    return `
+  <p class="lede">Post every new comment to a Slack channel.</p>
+  ${flags.slackError ? `<div class="error">${escapeHtml(flags.slackError)}</div>` : ''}
+  <form method="post" action="${base}">
+    <div class="field token">
+      <label for="webhook">Webhook URL</label>
+      <input id="webhook" name="webhook" type="text" placeholder="https://hooks.slack.com/services/..." required
+             autocomplete="off" spellcheck="false" autocapitalize="off"
+             value="${escapeHtml(flags.webhook ?? '')}">
+      <p class="hint">Create an app at <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer">api.slack.com/apps</a>,
+        turn on Incoming Webhooks, add one to a channel, and paste its URL.</p>
+    </div>
+    <button type="submit">Connect</button>
+  </form>`
+  }
+
+  return `
+  <div class="status on">
+    <span class="dot"></span>
+    <span>Connected. Messages go to the channel this webhook was made for.</span>
+  </div>
+  ${
+    flags.sent === 'slack'
+      ? '<p class="hint">Test message sent.</p>'
+      : project.slack_error
+        ? `<p class="hint danger">Last message failed ${escapeHtml(agoPhrase(project.slack_error_at))}: ${escapeHtml(
+            project.slack_error,
+          )}</p>`
+        : ''
+  }
   <div class="actions">
     <form method="post" action="${base}/test"><button class="ghost" type="submit">Send test</button></form>
     <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
@@ -497,7 +555,7 @@ app.post('/projects/:id/telegram/test', async (c) => {
     () => true,
     () => false,
   )
-  return c.redirect(`/projects/${project.id}${sent ? '?sent=1' : ''}#telegram`)
+  return c.redirect(`/projects/${project.id}${sent ? '?sent=telegram' : ''}#telegram`)
 })
 
 app.post('/projects/:id/telegram/disconnect', (c) => {
@@ -506,6 +564,54 @@ app.post('/projects/:id/telegram/disconnect', (c) => {
 
   setBot(project, null, null)
   return c.redirect(`/projects/${project.id}#telegram`)
+})
+
+app.post('/projects/:id/slack', async (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project) return c.notFound()
+
+  const form = await c.req.formData()
+  const webhook = String(form.get('webhook') ?? '').trim()
+  const reject = (slackError: string) => c.html(projectPage(c, project, { slackError, webhook }))
+
+  if (!slack.isWebhook(webhook)) {
+    return reject("That doesn't look like a webhook URL. Slack's start with https://hooks.slack.com/services/")
+  }
+
+  // Posting is the only way to learn a webhook works, so the hello goes out
+  // before anything is saved.
+  try {
+    await slack.post(webhook, `Connected to *${slack.esc(project.name)}*. New comments will show up here.`)
+  } catch (err) {
+    const rejected = err instanceof slack.SlackError && err.status !== undefined && err.status < 500
+    return reject(
+      rejected ? `Slack did not accept that webhook. ${err.message}` : "Couldn't reach Slack. Try again in a moment.",
+    )
+  }
+
+  slack.setWebhook(project, webhook)
+  return c.redirect(`/projects/${project.id}#slack`)
+})
+
+app.post('/projects/:id/slack/test', async (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project) return c.notFound()
+
+  const sent = await slack
+    .deliver(project, `Test from *${slack.esc(project.name)}*. New comments will show up here.`)
+    .then(
+      () => true,
+      () => false,
+    )
+  return c.redirect(`/projects/${project.id}${sent ? '?sent=slack' : ''}#slack`)
+})
+
+app.post('/projects/:id/slack/disconnect', (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project) return c.notFound()
+
+  slack.setWebhook(project, null)
+  return c.redirect(`/projects/${project.id}#slack`)
 })
 
 app.post('/projects/:id/delete', (c) => {

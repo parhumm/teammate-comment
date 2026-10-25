@@ -61,7 +61,7 @@ Create the project with domain `localhost` and both demo pages will be allowed.
 | `DEMO_PORT` | `5173` | Demo static server |
 | `TC_API` | `http://localhost:8787` | Where the demo pages point their script tag |
 
-`npm test` covers the Telegram message and the copied Markdown. The two demo pages are the
+`npm test` covers the Telegram and Slack messages and the copied Markdown. The two demo pages are the
 manual harness, and they differ on purpose — one light editorial serif, one `color-scheme: dark`
 — so theme resolution and contrast get exercised against designs the widget does not control.
 
@@ -113,6 +113,14 @@ hello. From then on every new comment and reply lands in that chat with the page
 text and the message. Delivery is fire-and-forget: a slow or blocked bot never delays a comment,
 and the last failure is shown on the project page.
 
+**Slack.** Each project can also post to one Slack channel. Create an app at
+`api.slack.com/apps`, turn on Incoming Webhooks, add one to a channel, and paste its URL on the
+project page. Slack binds a webhook to its channel when you create it, so there is no Start step:
+the panel posts a hello, and only saves the URL if Slack accepts it. Only
+`https://hooks.slack.com/services/...` URLs are taken, so the field can never be used to make the
+server fetch anything else. Comments, delivery and failures work exactly as for Telegram, and a
+project can have both.
+
 ---
 
 ## Deploying
@@ -163,6 +171,7 @@ server/src/
   api.ts              widget API, key + domain gated
   panel.ts            server-rendered owner panel
   telegram.ts         per-project bot: connect, deliver, format
+  slack.ts            per-project incoming webhook: connect, deliver, format
   views/layout.ts     panel shell and CSS
   views/landing.html  the page at /, a client-only replica of the widget
 widget/src/

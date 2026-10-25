@@ -339,7 +339,7 @@ in an env file; only `ss` knows what the process actually did with them.
 5. Select some text on that page. A **Comment** button appears.
 6. Optional: connect a Telegram bot on the project page (see the README). The VPS needs outbound
    HTTPS to `api.telegram.org`; nothing inbound changes, because the panel polls rather than
-   receiving a webhook.
+   receiving a webhook. Slack works the same way, outbound only, to `hooks.slack.com`.
 
 ---
 
@@ -388,7 +388,7 @@ torn WAL. Use SQLite's own online backup. On the VPS, `crontab -e`:
 0 4 * * * sqlite3 /var/lib/teammate/comments.db ".backup '/var/lib/teammate/backup.db'" && gzip -f /var/lib/teammate/backup.db
 ```
 
-The database holds each project's Telegram bot token, so treat the backup as a secret, not
+The database holds each project's Telegram bot token and Slack webhook URL, so treat the backup as a secret, not
 just as data.
 
 Copy `/var/lib/teammate/.secret` somewhere safe once. Losing it signs everyone out and changes
@@ -412,6 +412,7 @@ siblings, start.
 | `npm ci` fails on the VPS | A workspace manifest is missing; `widget/` must be rsynced whole |
 | Comments vanished after a deploy | `TC_DB` is pointing inside `/opt/teammate`; it must be `/var/lib/teammate` |
 | Telegram never connects, or shows `Couldn't reach Telegram` | The VPS cannot reach `api.telegram.org` over HTTPS. The project page shows the last error and when it happened |
+| Slack shows `Slack answered 404: no_service` | The webhook was removed or its app uninstalled in Slack. Disconnect and paste a new one |
 
 To read the environment the service actually got, ask the **process**, not systemd:
 

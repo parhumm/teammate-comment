@@ -13,7 +13,7 @@ Select text, comment without an account, unlimited threaded replies with dates, 
 reopen, edit, delete, click a highlight to open its thread, sidebar in document order, graded
 highlight intensity, orphan recovery, light/dark adaptation to the host page, owner accounts,
 unlimited projects, wildcard domains, live install detection, copy threads as Markdown with the
-element path (for handing to an assistant), per-project Telegram notifications.
+element path (for handing to an assistant), per-project Telegram and Slack notifications.
 
 ---
 
@@ -99,6 +99,6 @@ version history, analytics dashboards, and the W3C Web Annotation data model.
 
 Each one is individually reasonable and collectively they are a different product.
 
-Telegram is the one notification channel and the one integration, because a single owner
-wanting to hear about a comment is the whole need. Slack, webhooks and digests would be the
-start of a notification product, which this is not.
+Telegram and Slack are the notification channels and the only integrations, because an owner
+or a team wanting to hear about a comment is the whole need. Generic webhooks, email and digests
+would be the start of a notification product, which this is not.

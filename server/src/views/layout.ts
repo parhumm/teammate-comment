@@ -259,6 +259,7 @@ td a { font-family: var(--tc-mono); font-size: 12px; }
   color: var(--tc-text-3);
   margin: 0 0 var(--tc-s3);
 }
+.section h2 .logo { width: 14px; height: 14px; vertical-align: -2px; margin-right: var(--tc-s2); }
 .back {
   font-size: 12px;
   color: var(--tc-text-3);

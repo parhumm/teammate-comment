@@ -169,18 +169,7 @@ export async function deliver(project: Project, text: string): Promise<void> {
 /** Fire-and-forget from the write path. A slow or dead bot never delays a comment. */
 export function notify(project: Project, thread: Thread, comment: Comment, kind: 'new' | 'reply'): void {
   if (!project.telegram_token || !project.telegram_chat_id) return
-  void deliver(
-    project,
-    telegramMessage({
-      kind,
-      project: project.name,
-      pageUrl: thread.page_url,
-      threadId: thread.id,
-      who: comment.name,
-      message: comment.message,
-      quote: thread.selected_text,
-    }),
-  ).catch(() => {})
+  void deliver(project, telegramMessage(noticeFor(project, thread, comment, kind))).catch(() => {})
 }
 
 export interface Notice {
@@ -193,12 +182,25 @@ export interface Notice {
   quote: string
 }
 
+/** What every channel says about a comment, before each formats it its own way. */
+export function noticeFor(project: Project, thread: Thread, comment: Comment, kind: Notice['kind']): Notice {
+  return {
+    kind,
+    project: project.name,
+    pageUrl: thread.page_url,
+    threadId: thread.id,
+    who: comment.name,
+    message: comment.message,
+    quote: thread.selected_text,
+  }
+}
+
 /** Telegram's HTML subset: three characters need escaping, plus quotes inside href. */
 export function esc(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function cut(value: string, max: number): string {
+export function cut(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value
 }
 

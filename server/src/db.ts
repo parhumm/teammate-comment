@@ -79,6 +79,9 @@ for (const column of [
   'telegram_bot',
   'telegram_error',
   'telegram_error_at',
+  'slack_webhook',
+  'slack_error',
+  'slack_error_at',
 ]) {
   if (!projectColumns.has(column)) db.exec(`ALTER TABLE projects ADD COLUMN ${column} TEXT`)
 }
@@ -105,6 +108,10 @@ export interface Project {
   telegram_bot: string | null
   telegram_error: string | null
   telegram_error_at: string | null
+  /** Per-project Slack delivery: one incoming webhook, already bound to its channel. */
+  slack_webhook: string | null
+  slack_error: string | null
+  slack_error_at: string | null
 }
 
 export interface Thread {
