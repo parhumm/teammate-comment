@@ -12,6 +12,8 @@ interface Props {
   store: Store
   thread: ThreadState
   name: string
+  email: string
+  owner: boolean
   pending: Set<number>
   failed: Map<number, string>
 }
@@ -20,12 +22,14 @@ function CommentRow({
   store,
   comment,
   isRoot,
+  owner,
   pending,
   failure,
 }: {
   store: Store
   comment: CommentDto
   isRoot: boolean
+  owner: boolean
   pending: boolean
   failure?: string
 }) {
@@ -49,7 +53,7 @@ function CommentRow({
         </time>
         {comment.edited_at && <span>edited</span>}
 
-        {!pending && !editing && (
+        {owner && !pending && !editing && (
           <span class="actions">
             <button class="link" type="button" onClick={() => setEditing(true)}>
               Edit
@@ -121,7 +125,7 @@ function CommentRow({
   )
 }
 
-export function ThreadPopup({ store, thread, name, pending, failed }: Props) {
+export function ThreadPopup({ store, thread, name, email, owner, pending, failed }: Props) {
   const { dto } = thread
   const [replying, setReplying] = useState(false)
   const clip = useCopy()
@@ -142,6 +146,7 @@ export function ThreadPopup({ store, thread, name, pending, failed }: Props) {
             store={store}
             comment={comment}
             isRoot={i === 0}
+            owner={owner}
             pending={pending.has(comment.id)}
             failure={failed.get(comment.id)}
           />
@@ -150,10 +155,11 @@ export function ThreadPopup({ store, thread, name, pending, failed }: Props) {
         {replying ? (
           <Composer
             name={name}
+            email={email}
             submitLabel="Reply"
             placeholder="Reply"
-            onSubmit={(who, message) => {
-              store.reply(dto.id, who, message)
+            onSubmit={(who, address, message) => {
+              store.reply(dto.id, who, address, message)
               setReplying(false)
             }}
             onCancel={() => setReplying(false)}
@@ -167,13 +173,15 @@ export function ThreadPopup({ store, thread, name, pending, failed }: Props) {
             <button class="btn ghost" type="button" title="Copy as Markdown" onClick={copy}>
               {clip.status === 'copied' ? 'Copied' : 'Copy'}
             </button>
-            <button
-              class="btn ghost"
-              type="button"
-              onClick={() => store.toggleResolve(dto.id)}
-            >
-              {dto.resolved ? 'Reopen' : 'Resolve'}
-            </button>
+            {owner && (
+              <button
+                class="btn ghost"
+                type="button"
+                onClick={() => store.toggleResolve(dto.id)}
+              >
+                {dto.resolved ? 'Reopen' : 'Resolve'}
+              </button>
+            )}
             <button class="btn" type="button" onClick={() => setReplying(true)}>
               Reply
             </button>

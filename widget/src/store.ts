@@ -10,6 +10,7 @@ import {
 import type { Span } from './highlights.ts'
 
 const NAME_KEY = 'tc:name'
+const EMAIL_KEY = 'tc:email'
 
 export interface ThreadState {
   dto: ThreadDto
@@ -29,6 +30,10 @@ export interface State {
   notice: string | null
   threads: ThreadState[]
   name: string
+  /** Optional, remembered with the name. Sent with each comment, never shown back. */
+  email: string
+  /** The server accepted this browser's owner key: resolve, edit and delete show. */
+  owner: boolean
   /** A selection captured but not yet committed to a thread. */
   draft: Draft | null
   activeThreadId: number | null
@@ -53,7 +58,9 @@ export class Store {
     error: null,
     notice: null,
     threads: [],
-    name: readName(),
+    name: read(NAME_KEY),
+    email: read(EMAIL_KEY),
+    owner: false,
     draft: null,
     activeThreadId: null,
     sidebarOpen: false,
@@ -112,19 +119,20 @@ export class Store {
   async load(): Promise<void> {
     this.set({ loading: true, error: null })
     try {
-      const { threads } = await this.api.list(this.pageUrl)
+      const { threads, owner } = await this.api.list(this.pageUrl)
       // Resolution needs the text index, so it is only built once there is
       // actually something to anchor.
       const resolved = threads.length ? threads.map((dto) => this.withResolution(dto)) : []
-      this.set({ loading: false, threads: resolved })
+      this.set({ loading: false, threads: resolved, owner: !!owner })
     } catch (err) {
       this.set({ loading: false, error: messageOf(err, "Couldn't load comments.") })
     }
   }
 
-  setName(name: string): void {
-    writeName(name)
-    this.set({ name })
+  setIdentity(name: string, email: string): void {
+    write(NAME_KEY, name)
+    write(EMAIL_KEY, email)
+    this.set({ name, email })
   }
 
   setDraft(draft: Draft | null): void {
@@ -168,8 +176,8 @@ export class Store {
    * confirmed it. Review is a flow state, and waiting on a round trip to see
    * your own sentence breaks it.
    */
-  async createThread(anchor: Anchor, name: string, message: string): Promise<void> {
-    this.setName(name)
+  async createThread(anchor: Anchor, name: string, email: string, message: string): Promise<void> {
+    this.setIdentity(name, email)
     const optimisticId = nextTempId()
     const now = new Date().toISOString()
 
@@ -202,6 +210,7 @@ export class Store {
       const { thread } = await this.api.createThread({
         pageUrl: this.pageUrl,
         name,
+        email,
         message,
         selectedText: anchor.selectedText,
         textBefore: anchor.textBefore,
@@ -215,8 +224,8 @@ export class Store {
     }
   }
 
-  async reply(threadId: number, name: string, message: string): Promise<void> {
-    this.setName(name)
+  async reply(threadId: number, name: string, email: string, message: string): Promise<void> {
+    this.setIdentity(name, email)
     const optimisticId = nextTempId()
 
     const optimistic: CommentDto = {
@@ -238,7 +247,7 @@ export class Store {
     })
 
     try {
-      const { comment } = await this.api.reply(threadId, name, message)
+      const { comment } = await this.api.reply(threadId, name, email, message)
       this.set({
         pending: withoutId(this.state.pending, optimisticId),
         threads: mapComment(this.state.threads, optimisticId, () => comment),
@@ -383,19 +392,19 @@ function messageOf(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
 }
 
-function readName(): string {
+function read(key: string): string {
   try {
-    return localStorage.getItem(NAME_KEY) ?? ''
+    return localStorage.getItem(key) ?? ''
   } catch {
     return ''
   }
 }
 
-function writeName(name: string): void {
+function write(key: string, value: string): void {
   try {
-    localStorage.setItem(NAME_KEY, name)
+    localStorage.setItem(key, value)
   } catch {
-    /* private mode, or storage disabled: the name simply is not remembered */
+    /* private mode, or storage disabled: the value simply is not remembered */
   }
 }
 

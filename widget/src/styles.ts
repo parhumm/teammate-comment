@@ -48,25 +48,26 @@ button, input, textarea { font: inherit; color: inherit; }
 
 /* ------------------------------------------------- selection affordance -- */
 
-/* The only element that appears without being asked for, so it is the most
-   restrained thing in the widget: one control, one word. */
+/* One control, one word, but in the action colours: a neutral pill vanished
+   into dark pages and busy text, and a prompt nobody sees prompts nothing. */
 .pill {
   position: absolute;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 1px solid var(--tc-border);
+  border: 1px solid transparent;
   border-radius: var(--tc-r-pill);
-  background: var(--tc-surface-0);
+  background: var(--tc-action-bg);
+  color: var(--tc-action-fg);
   box-shadow: var(--tc-shadow);
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   animation: rise var(--tc-fast) var(--tc-ease) both;
 }
-.pill:hover { background: var(--tc-surface-2); }
+.pill:hover { opacity: var(--tc-hover-opacity); }
 
 /* On touch the native callout and drag handles crowd the selection, so the
    pill docks at the bottom edge, centred and in thumb reach, clear of the
@@ -423,6 +424,9 @@ button, input, textarea { font: inherit; color: inherit; }
   .launcher { height: 44px; padding: 0 16px; }
   .link { padding: 6px 0; }
   .btn { padding: 10px 14px; }
+  /* Below 16px iOS zooms the whole page into a focused field, which throws the
+     composer off screen. */
+  .composer input, .composer textarea { font-size: 16px; }
   .thread { padding-top: var(--tc-s3); padding-bottom: var(--tc-s3); }
 }
 `

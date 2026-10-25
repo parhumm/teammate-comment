@@ -27,10 +27,11 @@ test('replies read as replies', () => {
     pageUrl: 'https://a.b/c',
     threadId: 1,
     who: 'O',
+    email: 'o@a.b',
     message: 'm',
     quote: 'q',
   })
-  assert.ok(text.startsWith('<b>O</b> replied on <b>P</b>'))
+  assert.ok(text.startsWith('<b>O</b> (o@a.b) replied on <b>P</b>'))
 })
 
 test('token pattern accepts BotFather tokens and rejects noise', () => {

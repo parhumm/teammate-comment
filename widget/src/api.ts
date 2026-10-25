@@ -35,6 +35,8 @@ export class Api {
   constructor(
     private readonly origin: string,
     private readonly key: string,
+    /** Empty for readers. Only the owner can resolve, edit and delete. */
+    private readonly owner: string,
   ) {}
 
   /**
@@ -61,7 +63,11 @@ export class Api {
         // Content-Type is only set when there is a body to describe. Adding it
         // to a GET would turn every read into a preflighted request for no
         // reason, doubling the round trips on the most common call.
-        headers: rest.body ? { 'Content-Type': 'application/json' } : {},
+        headers: {
+          ...(rest.body ? { 'Content-Type': 'application/json' } : {}),
+          // Also preflighted, so only the owner ever sends it.
+          ...(this.owner ? { Authorization: `Bearer ${this.owner}` } : {}),
+        },
       })
     } catch {
       throw new ApiError("Couldn't reach the comment server.")
@@ -72,13 +78,14 @@ export class Api {
     return body as T
   }
 
-  list(pageUrl: string): Promise<{ threads: ThreadDto[] }> {
+  list(pageUrl: string): Promise<{ threads: ThreadDto[]; owner: boolean }> {
     return this.send('/threads', { params: { url: pageUrl } })
   }
 
   createThread(payload: {
     pageUrl: string
     name: string
+    email: string
     message: string
     selectedText: string
     textBefore: string
@@ -89,10 +96,10 @@ export class Api {
     return this.send('/threads', { method: 'POST', body: JSON.stringify(payload) })
   }
 
-  reply(threadId: number, name: string, message: string): Promise<{ comment: CommentDto }> {
+  reply(threadId: number, name: string, email: string, message: string): Promise<{ comment: CommentDto }> {
     return this.send(`/threads/${threadId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ name, message }),
+      body: JSON.stringify({ name, email, message }),
     })
   }
 

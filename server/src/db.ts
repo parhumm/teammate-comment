@@ -86,6 +86,11 @@ for (const column of [
   if (!projectColumns.has(column)) db.exec(`ALTER TABLE projects ADD COLUMN ${column} TEXT`)
 }
 
+const commentColumns = new Set(
+  (db.prepare('PRAGMA table_info(comments)').all() as { name: string }[]).map((c) => c.name),
+)
+if (!commentColumns.has('email')) db.exec('ALTER TABLE comments ADD COLUMN email TEXT')
+
 export interface User {
   id: number
   email: string
@@ -134,6 +139,8 @@ export interface Comment {
   id: number
   thread_id: number
   name: string
+  /** Optional, for the owner to write back. Only ever goes to the owner's channels, never to the widget. */
+  email: string | null
   message: string
   created_at: string
   updated_at: string

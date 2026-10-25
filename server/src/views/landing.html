@@ -26,7 +26,7 @@
       "url": "https://teammate.jaan.to/",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web browser",
-      "description": "Google Docs style comments for any web page. Add one script tag, and reviewers select text to comment on websites, blog drafts, docs and HTML reports, reply in threads and resolve, without an account.",
+      "description": "Google Docs style comments for any web page. Add one script tag, and reviewers select text to comment on websites, blog drafts, docs and HTML reports and reply in threads, without an account.",
       "license": "https://opensource.org/licenses/MIT",
       "codeRepository": "https://github.com/parhumm/teammate-comment",
       "author": { "@type": "Person", "name": "Parhum Khoshbakht", "url": "https://www.linkedin.com/in/parhumm/" }
@@ -34,11 +34,11 @@
     {
       "@type": "FAQPage",
       "mainEntity": [
-        { "@type": "Question", "name": "What is Teammate Comment?", "acceptedAnswer": { "@type": "Answer", "text": "A comment layer for web pages. Add one script tag and anyone who opens the page can select text, leave a comment, reply and resolve, like comments in a Google Doc. Teams use it to review websites, blog drafts, docs and HTML reports." } },
-        { "@type": "Question", "name": "Do reviewers need an account?", "acceptedAnswer": { "@type": "Answer", "text": "No. Commenters never sign up: the widget asks for a name once and keeps it on their device. Only the site owner has an account." } },
+        { "@type": "Question", "name": "What is Teammate Comment?", "acceptedAnswer": { "@type": "Answer", "text": "A comment layer for web pages. Add one script tag and anyone who opens the page can select text, leave a comment and reply, like comments in a Google Doc. Only the site owner resolves and deletes. Teams use it to review websites, blog drafts, docs and HTML reports." } },
+        { "@type": "Question", "name": "Do reviewers need an account?", "acceptedAnswer": { "@type": "Answer", "text": "No. Commenters never sign up: the widget asks for a name once, plus an optional email only the site owner sees, and keeps both on their device. Only the site owner has an account." } },
         { "@type": "Question", "name": "Which sites and platforms does it work with?", "acceptedAnswer": { "@type": "Answer", "text": "Any page where you can add a script tag before the closing body tag: WordPress, Webflow, Ghost, Squarespace, Shopify themes, static site generators and hand-written HTML. A project covers its domain and every subdomain, so staging.acme.com works under acme.com." } },
         { "@type": "Question", "name": "Can I comment on an HTML report?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, once the report is served from a URL on your project's domain, such as reports.acme.com/q3.html. A file opened straight from disk has no domain, so the widget does not load there; serve it from localhost, which a project can name as its domain, or upload it." } },
-        { "@type": "Question", "name": "Can my blog's readers use it as a comment section?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet. It is built for review with people you trust: there is no moderation, so anyone who can open the page can edit or delete any comment. Use it on drafts, staging and pages you share with your team or clients." } },
+        { "@type": "Question", "name": "Can my blog's readers use it as a comment section?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet. It is built for review with people you trust: anyone who can open the page can post, and comments appear at once with no approval step. Only you can delete them. Use it on drafts, staging and pages you share with your team or clients." } },
         { "@type": "Question", "name": "Will it change or slow down my page?", "acceptedAnswer": { "@type": "Answer", "text": "It never rewrites your markup or borrows your styles: highlights are painted with the CSS Custom Highlight API, and the widget lives in a shadow root. The script is under 20 KB gzipped." } },
         { "@type": "Question", "name": "How do I send the comments to ChatGPT or Claude?", "acceptedAnswer": { "@type": "Answer", "text": "Open the sidebar and press Copy all. Threads come out as Markdown with the page URL, the element, the quoted text and every reply, ready to paste into ChatGPT, Claude or Cursor." } },
         { "@type": "Question", "name": "Can I host it myself?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The source is on GitHub under the MIT license, and the server is one Node process with one SQLite file." } }
@@ -523,7 +523,7 @@ figure + .channel { margin-top: 20px; }
     <div class="wrap">
       <div id="hero-copy">
         <h1><span class="lift">Comment on</span> <em>any web page</em>, like a Google Doc.</h1>
-        <p class="lede">Teammate Comment adds review comments to websites, blog posts, docs and HTML reports. Paste one script tag, and anyone who opens the page can select text, comment without an account, reply in threads and resolve. You read every thread from one sidebar.</p>
+        <p class="lede">Teammate Comment adds review comments to websites, blog posts, docs and HTML reports. Paste one script tag, and anyone who opens the page can select text, comment without an account and reply in threads. You read every thread from one sidebar, and only you resolve or delete.</p>
         <div class="cta">
           <a class="btn" href="https://teammate.jaan.to/signup">Create a project</a>
           <a class="btn ghost" href="#install">See the snippet</a>
@@ -603,7 +603,7 @@ figure + .channel { margin-top: 20px; }
     <div class="wrap">
       <h2>How it works</h2>
       <p>Owners sign up once and hand over a snippet. Commenters never have an account and never meet a signup screen. They open a page and start marking it up.</p>
-      <p class="note">Built for private review with people you trust. There is no moderation yet, so anyone who can open the page can edit or delete any comment.</p>
+      <p class="note">Built for private review with people you trust. Anyone who can open the page can read and comment. Only you resolve, edit and delete, from a private owner link in your dashboard.</p>
       <div class="roles">
         <div>
           <h3>Owners</h3>
@@ -618,7 +618,7 @@ figure + .channel { margin-top: 20px; }
           <ol class="steps">
             <li><span><b>Open the page.</b> A staging site, a blog draft, an HTML report.</span></li>
             <li><span><b>Select the text</b> the feedback is about.</span></li>
-            <li><span><b>Comment, reply, resolve.</b> Your name is asked once and kept on your device.</span></li>
+            <li><span><b>Comment and reply.</b> Your name is asked once and kept on your device. Email is optional and only the owner sees it.</span></li>
           </ol>
         </div>
       </div>
@@ -759,11 +759,11 @@ npm run start   <span class="dim"># panel + API on http://localhost:8787</span><
     <div class="wrap">
       <h2>Common questions</h2>
       <dl class="points">
-        <div><dt>What is Teammate Comment?</dt><dd>A comment layer for web pages. Add one script tag and anyone who opens the page can select text, leave a comment, reply and resolve, like comments in a Google Doc. Teams use it to review websites, blog drafts, docs and HTML reports.</dd></div>
-        <div><dt>Do reviewers need an account?</dt><dd>No. Commenters never sign up: the widget asks for a name once and keeps it on their device. Only the site owner has an account.</dd></div>
+        <div><dt>What is Teammate Comment?</dt><dd>A comment layer for web pages. Add one script tag and anyone who opens the page can select text, leave a comment and reply, like comments in a Google Doc. Only the site owner resolves and deletes. Teams use it to review websites, blog drafts, docs and HTML reports.</dd></div>
+        <div><dt>Do reviewers need an account?</dt><dd>No. Commenters never sign up: the widget asks for a name once, plus an optional email only the site owner sees, and keeps both on their device. Only the site owner has an account.</dd></div>
         <div><dt>Which sites and platforms does it work with?</dt><dd>Any page where you can add a script tag before <code>&lt;/body&gt;</code>: WordPress, Webflow, Ghost, Squarespace, Shopify themes, static site generators and hand-written HTML. A project covers its domain and every subdomain, so staging.acme.com works under acme.com.</dd></div>
         <div><dt>Can I comment on an HTML report?</dt><dd>Yes, once the report is served from a URL on your project's domain, such as reports.acme.com/q3.html. A file opened straight from disk has no domain, so the widget does not load there; serve it from localhost, which a project can name as its domain, or upload it.</dd></div>
-        <div><dt>Can my blog's readers use it as a comment section?</dt><dd>Not yet. It is built for review with people you trust: there is no moderation, so anyone who can open the page can edit or delete any comment. Use it on drafts, staging and pages you share with your team or clients.</dd></div>
+        <div><dt>Can my blog's readers use it as a comment section?</dt><dd>Not yet. It is built for review with people you trust: anyone who can open the page can post, and comments appear at once with no approval step. Only you can delete them. Use it on drafts, staging and pages you share with your team or clients.</dd></div>
         <div><dt>Will it change or slow down my page?</dt><dd>It never rewrites your markup or borrows your styles: highlights are painted with the CSS Custom Highlight API, and the widget lives in a shadow root. The script is under 20 KB gzipped.</dd></div>
         <div><dt>How do I send the comments to ChatGPT or Claude?</dt><dd>Open the sidebar and press Copy all. Threads come out as Markdown with the page URL, the element, the quoted text and every reply, ready to paste into ChatGPT, Claude or Cursor.</dd></div>
         <div><dt>Can I host it myself?</dt><dd>Yes. The source is on GitHub under the MIT license, and the server is one Node process with one SQLite file.</dd></div>

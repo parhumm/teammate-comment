@@ -10,24 +10,52 @@ import { Sidebar } from './components/Sidebar.tsx'
 const GAP = 8
 const EDGE = 8
 
-/** Keeps a floating element inside the viewport, flipping above when it must. */
+/**
+ * The part of the page actually on screen. An on-screen keyboard shrinks it
+ * without shrinking the window, so placing against `innerHeight` puts a focused
+ * composer underneath the keys.
+ */
+function visibleArea() {
+  const v = visualViewport
+  return v
+    ? { top: v.offsetTop, left: v.offsetLeft, width: v.width, height: v.height }
+    : { top: 0, left: 0, width: innerWidth, height: innerHeight }
+}
+
+/** Keeps a floating element inside the visible area, flipping above when it must. */
 function useAnchoredPosition(rect: DOMRect | null, ref: { current: HTMLElement | null }) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null)
+  const [moved, setMoved] = useState(0)
+
+  useEffect(() => {
+    const v = visualViewport
+    if (!rect || !v) return
+    const bump = () => setMoved((n) => n + 1)
+    v.addEventListener('resize', bump)
+    v.addEventListener('scroll', bump)
+    return () => {
+      v.removeEventListener('resize', bump)
+      v.removeEventListener('scroll', bump)
+    }
+  }, [!rect])
 
   useLayoutEffect(() => {
     if (!rect || !ref.current) return setPos(null)
 
+    const area = visibleArea()
+    const bottom = area.top + area.height
     const { offsetWidth: w, offsetHeight: h } = ref.current
-    const left = Math.min(Math.max(EDGE, rect.left), innerWidth - w - EDGE)
+    const left = Math.min(Math.max(area.left + EDGE, rect.left), area.left + area.width - w - EDGE)
 
+    const above = rect.top - h - GAP
     let top = rect.bottom + GAP
-    if (top + h > innerHeight - EDGE) {
-      const above = rect.top - h - GAP
-      top = above >= EDGE ? above : Math.max(EDGE, innerHeight - h - EDGE)
-    }
+    if (top + h > bottom - EDGE && above >= area.top + EDGE) top = above
+    // The anchor itself can be out of view, under a keyboard or scrolled past;
+    // the element still stays where it can be seen.
+    top = Math.max(area.top + EDGE, Math.min(top, bottom - h - EDGE))
 
-    setPos({ top, left })
-  }, [rect?.top, rect?.left, rect?.bottom, rect?.width, ref.current])
+    setPos({ top, left, maxHeight: area.height - 2 * EDGE })
+  }, [rect?.top, rect?.left, rect?.bottom, rect?.width, ref.current, moved])
 
   return pos
 }
@@ -283,7 +311,15 @@ export function App({ store, pulseLayer, reducedMotion, touch }: Props) {
         <div
           ref={popupRef}
           class="popup"
-          style={popupPos ? { top: `${popupPos.top}px`, left: `${popupPos.left}px` } : { opacity: 0 }}
+          style={
+            popupPos
+              ? {
+                  top: `${popupPos.top}px`,
+                  left: `${popupPos.left}px`,
+                  maxHeight: `min(70vh, ${popupPos.maxHeight}px)`,
+                }
+              : { opacity: 0 }
+          }
         >
           {state.draft ? (
             <>
@@ -291,10 +327,11 @@ export function App({ store, pulseLayer, reducedMotion, touch }: Props) {
               <div class="scroll">
                 <Composer
                   name={state.name}
+                  email={state.email}
                   submitLabel="Comment"
                   placeholder="What's on your mind?"
-                  onSubmit={(who, message) =>
-                    store.createThread(state.draft!.anchor, who, message)
+                  onSubmit={(who, address, message) =>
+                    store.createThread(state.draft!.anchor, who, address, message)
                   }
                   onCancel={() => store.setDraft(null)}
                 />
@@ -305,6 +342,8 @@ export function App({ store, pulseLayer, reducedMotion, touch }: Props) {
               store={store}
               thread={active!}
               name={state.name}
+              email={state.email}
+              owner={state.owner}
               pending={state.pending}
               failed={state.failed}
             />

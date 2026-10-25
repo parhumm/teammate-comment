@@ -10,6 +10,7 @@
 
 /** Field caps. The server slices to these; the widget stops typing at them. */
 export const MAX_NAME = 40
+export const MAX_EMAIL = 254
 export const MAX_MESSAGE = 2000
 export const MAX_QUOTE = 8000
 export const MAX_CONTEXT = 200

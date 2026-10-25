@@ -1,12 +1,20 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { db, type Project, type Thread, type Comment } from './db.ts'
 import { hostMatches, hostFromHeader } from './domain.ts'
+import { isOwnerKey } from './auth.ts'
 import { normalizePageUrl } from '../../shared/url.ts'
-import { MAX_NAME, MAX_MESSAGE, MAX_QUOTE, MAX_CONTEXT } from '../../shared/contract.ts'
+import { MAX_NAME, MAX_EMAIL, MAX_MESSAGE, MAX_QUOTE, MAX_CONTEXT } from '../../shared/contract.ts'
 import * as telegram from './telegram.ts'
 import * as slack from './slack.ts'
 
 type Env = { Variables: { project: Project } }
+
+/**
+ * What the widget may see of a comment, spelled out rather than `*`. Anyone who
+ * opens the page reads these, so a commenter's email stays out, and so does any
+ * column added later until someone decides it belongs here.
+ */
+const COMMENT = 'id, thread_id, name, message, created_at, updated_at, edited_at'
 
 export const api = new Hono<Env>()
 
@@ -27,9 +35,9 @@ const sql = {
   // A subquery rather than a generated `IN (?,?,...)`: the SQL text stays
   // constant regardless of thread count, so this statement can be cached at all.
   commentsForPage: db.prepare(
-    `SELECT c.* FROM comments c
-     WHERE c.thread_id IN (SELECT id FROM threads WHERE project_id = ? AND page_url = ?)
-     ORDER BY c.created_at, c.id`,
+    `SELECT ${COMMENT} FROM comments
+     WHERE thread_id IN (SELECT id FROM threads WHERE project_id = ? AND page_url = ?)
+     ORDER BY created_at, id`,
   ),
 
   threadById: db.prepare('SELECT * FROM threads WHERE id = ? AND project_id = ?'),
@@ -50,10 +58,10 @@ const sql = {
   ),
 
   insertComment: db.prepare(
-    'INSERT INTO comments (thread_id, name, message) VALUES (?, ?, ?) RETURNING *',
+    `INSERT INTO comments (thread_id, name, email, message) VALUES (?, ?, ?, ?) RETURNING ${COMMENT}`,
   ),
   commentsFor: db.prepare(
-    'SELECT * FROM comments WHERE thread_id = ? ORDER BY created_at, id',
+    `SELECT ${COMMENT} FROM comments WHERE thread_id = ? ORDER BY created_at, id`,
   ),
   ownedComment: db.prepare(
     `SELECT c.id, c.thread_id FROM comments c JOIN threads t ON t.id = c.thread_id
@@ -61,7 +69,7 @@ const sql = {
   ),
   editComment: db.prepare(
     `UPDATE comments SET message = ?, updated_at = datetime('now'), edited_at = datetime('now')
-     WHERE id = ? RETURNING *`,
+     WHERE id = ? RETURNING ${COMMENT}`,
   ),
   removeComment: db.prepare('DELETE FROM comments WHERE id = ?'),
   countComments: db.prepare('SELECT COUNT(*) AS n FROM comments WHERE thread_id = ?'),
@@ -74,6 +82,13 @@ function bad(message: string, status = 400) {
 /** Trims and caps a user-supplied string field. */
 function field(value: unknown, max: number): string {
   return String(value ?? '').trim().slice(0, max)
+}
+
+/** Optional, but if given it has to be something the owner can actually write to. */
+function email(value: unknown): string | null | Response {
+  const address = field(value, MAX_EMAIL)
+  if (!address) return null
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address) ? address : bad("That email doesn't look right.")
 }
 
 /** Tells every connected channel, fire-and-forget, so none of them delays the write. */
@@ -102,7 +117,7 @@ api.use('/*', async (c, next) => {
     return c.body(null, 204, {
       ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}),
       'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
     })
   }
@@ -141,6 +156,14 @@ api.use('/*', async (c, next) => {
   await next()
 })
 
+/** The owner's key rides in a header, never the query string, so it stays out of logs. */
+function isOwner(c: Context<Env>): boolean {
+  const auth = c.req.header('Authorization')
+  return isOwnerKey(c.get('project'), auth?.replace(/^Bearer /, ''))
+}
+
+const notOwner = () => bad('Only the project owner can do that.', 403)
+
 function threadsForPage(projectId: number, pageUrl: string) {
   const threads = sql.threadsForPage.all(projectId, pageUrl) as Thread[]
   if (!threads.length) return []
@@ -165,7 +188,7 @@ api.get('/threads', (c) => {
   const project = c.get('project')
   const url = c.req.query('url')
   if (!url) return bad('Missing page url.')
-  return c.json({ threads: threadsForPage(project.id, normalizePageUrl(url)) })
+  return c.json({ threads: threadsForPage(project.id, normalizePageUrl(url)), owner: isOwner(c) })
 })
 
 api.post('/threads', async (c) => {
@@ -174,11 +197,13 @@ api.post('/threads', async (c) => {
   if (!body) return bad('Invalid body.')
 
   const name = field(body.name, MAX_NAME)
+  const from = email(body.email)
   const message = field(body.message, MAX_MESSAGE)
   const pageUrl = normalizePageUrl(String(body.pageUrl ?? ''))
   const selected = String(body.selectedText ?? '').slice(0, MAX_QUOTE)
 
   if (!name) return bad('Name is required.')
+  if (from instanceof Response) return from
   if (!message) return bad('Message is required.')
   if (!pageUrl) return bad('Page url is required.')
   if (!selected) return bad('Selected text is required.')
@@ -193,8 +218,8 @@ api.post('/threads', async (c) => {
     Number(body.endOffset ?? 0),
   ) as Thread
 
-  const comment = sql.insertComment.get(thread.id, name, message) as Comment
-  notify(project, thread, comment, 'new')
+  const comment = sql.insertComment.get(thread.id, name, from, message) as Comment
+  notify(project, thread, { ...comment, email: from }, 'new')
   return c.json({ thread: { ...thread, resolved: false, comments: [comment] } }, 201)
 })
 
@@ -208,17 +233,20 @@ api.post('/threads/:id/comments', async (c) => {
   if (!thread) return bad('Thread not found.', 404)
 
   const name = field(body.name, MAX_NAME)
+  const from = email(body.email)
   const message = field(body.message, MAX_MESSAGE)
   if (!name) return bad('Name is required.')
+  if (from instanceof Response) return from
   if (!message) return bad('Message is required.')
 
-  const comment = sql.insertComment.get(id, name, message) as Comment
+  const comment = sql.insertComment.get(id, name, from, message) as Comment
   sql.touchThread.run(id)
-  notify(project, thread, comment, 'reply')
+  notify(project, thread, { ...comment, email: from }, 'reply')
   return c.json({ comment }, 201)
 })
 
 api.patch('/comments/:id', async (c) => {
+  if (!isOwner(c)) return notOwner()
   const project = c.get('project')
   const id = Number(c.req.param('id'))
   const body = await c.req.json().catch(() => null)
@@ -236,6 +264,7 @@ api.patch('/comments/:id', async (c) => {
  * thread with nothing in it is a highlight with no reason to exist.
  */
 api.delete('/comments/:id', (c) => {
+  if (!isOwner(c)) return notOwner()
   const project = c.get('project')
   const id = Number(c.req.param('id'))
 
@@ -252,6 +281,7 @@ api.delete('/comments/:id', (c) => {
 })
 
 api.post('/threads/:id/resolve', async (c) => {
+  if (!isOwner(c)) return notOwner()
   const project = c.get('project')
   const id = Number(c.req.param('id'))
   const body = await c.req.json().catch(() => ({}))

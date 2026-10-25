@@ -66,6 +66,24 @@ export function telegramStartCode(project: Project): string {
   return sign(`telegram:${project.id}:${project.telegram_token}`).slice(0, 16)
 }
 
+/**
+ * What lets the owner resolve, edit and delete from the widget; readers can only
+ * read and comment. Commenters have no accounts, and on the owner's own domain
+ * our session cookie is third-party and blocked, so the panel hands this over in
+ * a link instead. Derived rather than stored, so it needs no column.
+ */
+export function ownerKey(project: Project): string {
+  return sign(`owner:${project.id}:${project.project_key}`).slice(0, 32)
+}
+
+/** Timing-safe, so the key cannot be guessed a character at a time. */
+export function isOwnerKey(project: Project, provided: string | undefined): boolean {
+  if (!provided) return false
+  const a = Buffer.from(provided)
+  const b = Buffer.from(ownerKey(project))
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 export function startSession(c: Context, userId: number): void {
   const payload = `${userId}.${Date.now()}`
   setCookie(c, COOKIE, `${payload}.${sign(payload)}`, {

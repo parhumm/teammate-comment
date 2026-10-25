@@ -42,6 +42,23 @@ function locateScript(): Found | null {
 
 const found = locateScript()
 
+/**
+ * The owner arrives once through a panel link ending in `#tc-owner=…` and is
+ * remembered on this site from then on. The fragment is wiped at once so the
+ * key never lingers in the address bar, a bookmark or a link someone shares.
+ */
+function ownerFromUrl(key: string): string {
+  const slot = `tc:owner:${key}`
+  const match = /^#tc-owner=([\w-]+)$/.exec(location.hash)
+  if (match) history.replaceState(history.state, '', location.pathname + location.search)
+  try {
+    if (match) localStorage.setItem(slot, match[1])
+    return localStorage.getItem(slot) ?? ''
+  } catch {
+    return match?.[1] ?? ''
+  }
+}
+
 function boot(script: Found): void {
   const { key, origin } = script
 
@@ -67,7 +84,7 @@ function boot(script: Found): void {
   const pulseLayer = document.createElement('div')
   shadow.append(root, pulseLayer)
 
-  const api = new Api(origin, key)
+  const api = new Api(origin, key, ownerFromUrl(key))
   const store = new Store(api, normalizePageUrl(location.href), host)
 
   render(

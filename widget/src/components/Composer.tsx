@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'preact/hooks'
-import { MAX_NAME, MAX_MESSAGE } from '../../../shared/contract.ts'
+import { MAX_NAME, MAX_EMAIL, MAX_MESSAGE } from '../../../shared/contract.ts'
 
 interface Props {
   name: string
+  email: string
   submitLabel: string
   placeholder: string
-  onSubmit: (name: string, message: string) => void
+  onSubmit: (name: string, email: string, message: string) => void
   onCancel?: () => void
 }
 
@@ -14,11 +15,13 @@ interface Props {
  * collapses to a line of text with a way back, because re-confirming who you
  * are on every comment is the friction this product exists to avoid.
  */
-export function Composer({ name, submitLabel, placeholder, onSubmit, onCancel }: Props) {
+export function Composer({ name, email, submitLabel, placeholder, onSubmit, onCancel }: Props) {
   const [message, setMessage] = useState('')
   const [draftName, setDraftName] = useState(name)
+  const [draftEmail, setDraftEmail] = useState(email)
   const [editingName, setEditingName] = useState(!name)
 
+  const formRef = useRef<HTMLFormElement>(null)
   const nameRef = useRef<HTMLInputElement>(null)
   const messageRef = useRef<HTMLTextAreaElement>(null)
 
@@ -33,8 +36,9 @@ export function Composer({ name, submitLabel, placeholder, onSubmit, onCancel }:
 
   function submit(event?: Event) {
     event?.preventDefault()
-    if (!ready) return
-    onSubmit(draftName.trim(), message.trim())
+    // The keyboard shortcut skips the browser's own check of the email field.
+    if (!ready || !formRef.current?.reportValidity()) return
+    onSubmit(draftName.trim(), draftEmail.trim(), message.trim())
     setMessage('')
   }
 
@@ -47,22 +51,36 @@ export function Composer({ name, submitLabel, placeholder, onSubmit, onCancel }:
   }
 
   return (
-    <form class="composer" onSubmit={submit}>
+    <form ref={formRef} class="composer" onSubmit={submit}>
       {editingName ? (
-        <input
-          ref={nameRef}
-          type="text"
-          name="name"
-          // Asked once and then remembered, so letting the browser fill it is
-          // pure benefit. Declaring it beats leaving the browser to guess from
-          // the placeholder, which it will do either way and less reliably.
-          autocomplete="name"
-          placeholder="Your name"
-          maxLength={MAX_NAME}
-          value={draftName}
-          onKeyDown={onKeyDown}
-          onInput={(e) => setDraftName((e.target as HTMLInputElement).value)}
-        />
+        <>
+          <input
+            ref={nameRef}
+            type="text"
+            name="name"
+            // Asked once and then remembered, so letting the browser fill it is
+            // pure benefit. Declaring it beats leaving the browser to guess from
+            // the placeholder, which it will do either way and less reliably.
+            autocomplete="name"
+            placeholder="Your name"
+            maxLength={MAX_NAME}
+            value={draftName}
+            onKeyDown={onKeyDown}
+            onInput={(e) => setDraftName((e.target as HTMLInputElement).value)}
+          />
+          {/* Optional, so the owner can write back. It goes to the owner's
+              channels only, never next to the comment on the page. */}
+          <input
+            type="email"
+            name="email"
+            autocomplete="email"
+            placeholder="Email (optional, not shown)"
+            maxLength={MAX_EMAIL}
+            value={draftEmail}
+            onKeyDown={onKeyDown}
+            onInput={(e) => setDraftEmail((e.target as HTMLInputElement).value)}
+          />
+        </>
       ) : (
         <div class="byline">
           <span>Commenting as {draftName}</span>

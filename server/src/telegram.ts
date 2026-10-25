@@ -178,6 +178,8 @@ export interface Notice {
   pageUrl: string
   threadId: number
   who: string
+  /** The commenter's own, if they gave one. Owner channels only. */
+  email?: string | null
   message: string
   quote: string
 }
@@ -190,6 +192,7 @@ export function noticeFor(project: Project, thread: Thread, comment: Comment, ki
     pageUrl: thread.page_url,
     threadId: thread.id,
     who: comment.name,
+    email: comment.email,
     message: comment.message,
     quote: thread.selected_text,
   }
@@ -218,7 +221,7 @@ export function telegramMessage(n: Notice): string {
   const { verb, where, quote, message } = wording(n)
 
   return [
-    `<b>${esc(n.who)}</b> ${verb} <b>${esc(n.project)}</b>`,
+    `<b>${esc(n.who)}</b>${n.email ? ` (${esc(n.email)})` : ''} ${verb} <b>${esc(n.project)}</b>`,
     `<a href="${esc(n.pageUrl)}">${esc(where)}</a>`,
     '',
     `<i>“${esc(quote)}”</i>`,

@@ -107,7 +107,7 @@ export function slackMessage(n: Notice): string {
   const { verb, where, quote, message } = wording(n)
 
   return [
-    `*${esc(n.who)}* ${verb} *${esc(n.project)}*`,
+    `*${esc(n.who)}*${n.email ? ` (${esc(n.email)})` : ''} ${verb} *${esc(n.project)}*`,
     link(n.pageUrl, where),
     '',
     `> _“${esc(quote)}”_`,

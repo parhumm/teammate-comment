@@ -9,6 +9,7 @@ import {
   currentUser,
   newProjectKey,
   telegramStartCode,
+  ownerKey,
 } from './auth.ts'
 import { normalizeDomain, parsePattern, describeMatch, DomainError } from './domain.ts'
 import { layout, escapeHtml } from './views/layout.ts'
@@ -299,6 +300,7 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
   }[]
 
   const origin = publicOrigin(c)
+  const owner = `#tc-owner=${ownerKey(project)}`
   const installed = !!project.first_seen_at
   const match = describeMatch(parsePattern(project.domain_pattern))
 
@@ -317,7 +319,7 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
     ${pages
       .map(
         (p) => `<tr>
-      <td><a href="${escapeHtml(p.page_url)}" target="_blank" rel="noreferrer">${escapeHtml(
+      <td><a href="${escapeHtml(p.page_url + owner)}" target="_blank" rel="noreferrer">${escapeHtml(
         p.page_url,
       )}</a></td>
       <td class="num">${p.open || ''}</td>
@@ -358,6 +360,14 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
         : 'Waiting for first page view'
     }</span>
   </div>
+</div>
+
+<div class="section">
+  <div class="snippet-label">
+    <span>Readers can read and comment. Only you can resolve, edit and delete: open a page from the list below, or add this to any page address once per browser. Keep it private.</span>
+    <button class="quiet" data-copy="owner" type="button">Copy</button>
+  </div>
+  <div class="snippet"><code id="owner">${escapeHtml(owner)}</code></div>
 </div>
 
 <div class="section" id="telegram">
