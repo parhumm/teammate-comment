@@ -11,7 +11,7 @@ import {
   telegramStartCode,
   ownerKey,
 } from './auth.ts'
-import { normalizeDomain, parsePattern, describeMatch, DomainError } from './domain.ts'
+import { normalizeDomain, parsePattern, describeMatch, hostMatches, hostFromHeader, DomainError } from './domain.ts'
 import { layout, escapeHtml } from './views/layout.ts'
 import { relativeTime, readableTime, agoPhrase } from '../../shared/time.ts'
 import { embedSnippet } from '../../shared/contract.ts'
@@ -301,6 +301,8 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
 
   const origin = publicOrigin(c)
   const owner = `#tc-owner=${ownerKey(project)}`
+  // The key only ever travels to the project's own domain.
+  const onDomain = (url: string) => hostMatches(project.domain_pattern, hostFromHeader(url) ?? '')
   const installed = !!project.first_seen_at
   const match = describeMatch(parsePattern(project.domain_pattern))
 
@@ -319,7 +321,7 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
     ${pages
       .map(
         (p) => `<tr>
-      <td><a href="${escapeHtml(p.page_url + owner)}" target="_blank" rel="noreferrer">${escapeHtml(
+      <td><a href="${escapeHtml(p.page_url + (onDomain(p.page_url) ? owner : ''))}" target="_blank" rel="noreferrer">${escapeHtml(
         p.page_url,
       )}</a></td>
       <td class="num">${p.open || ''}</td>

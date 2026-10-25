@@ -30,6 +30,9 @@ test('readers comment; only the owner resolves, edits and deletes; email never r
     selectedText: 'x',
   }
   assert.equal((await call('POST', '/threads', { ...thread, email: 'nope' })).status, 400)
+  for (const pageUrl of ['https://evil.test/a', 'https://acme.com@evil.test/a']) {
+    assert.equal((await call('POST', '/threads', { ...thread, pageUrl })).status, 403)
+  }
 
   const created = await call('POST', '/threads', thread)
   assert.equal(created.status, 201)

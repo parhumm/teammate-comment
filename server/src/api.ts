@@ -206,6 +206,11 @@ api.post('/threads', async (c) => {
   if (from instanceof Response) return from
   if (!message) return bad('Message is required.')
   if (!pageUrl) return bad('Page url is required.')
+  // Origin is only a header, so check the stored URL too: the panel links to
+  // it with the owner key attached.
+  if (!hostMatches(project.domain_pattern, hostFromHeader(pageUrl) ?? '')) {
+    return bad("This page isn't on this project's domain.", 403)
+  }
   if (!selected) return bad('Selected text is required.')
 
   const thread = sql.insertThread.get(
