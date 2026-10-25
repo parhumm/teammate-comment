@@ -68,6 +68,20 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 .pill:hover { background: var(--tc-surface-2); }
 
+/* On touch the native callout and drag handles crowd the selection, so the
+   pill docks at the bottom edge, centred and in thumb reach, clear of the
+   launcher in the corner. */
+.pill.is-docked {
+  left: 0;
+  right: 0;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  width: max-content;
+  margin: 0 auto;
+  height: 44px;
+  padding: 0 20px;
+  font-size: 14px;
+}
+
 @keyframes rise {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
@@ -400,6 +414,7 @@ button, input, textarea { font: inherit; color: inherit; }
   }
   .popup { width: calc(100vw - 24px); }
   .launcher { right: 12px; bottom: 12px; }
+  .pill.is-docked { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* Coarse pointers get the 44px minimum target, independent of viewport width:

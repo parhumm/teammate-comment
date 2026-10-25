@@ -36,28 +36,33 @@ interface Props {
   store: Store
   pulseLayer: HTMLElement
   reducedMotion: boolean
-  /** Selection-anchored creation is desktop-only in V1. */
-  canCreate: boolean
+  /**
+   * A coarse pointer. The native selection callout and drag handles own the
+   * space around a touch selection and cannot be suppressed, so the pill docks
+   * at the bottom edge instead of chasing the selection.
+   */
+  touch: boolean
 }
 
-export function App({ store, pulseLayer, reducedMotion, canCreate }: Props) {
+export function App({ store, pulseLayer, reducedMotion, touch }: Props) {
   const state = useStore(store)
   const [selection, setSelection] = useState<Draft | null>(null)
 
   const pillRef = useRef<HTMLButtonElement>(null)
   const popupRef = useRef<HTMLDivElement>(null)
+  // The selection as it was when the pill was pressed. A tap can collapse the
+  // native selection before its click lands, and the pill must survive that.
+  const pressed = useRef<Draft | null>(null)
 
   const active = state.threads.find((t) => t.dto.id === state.activeThreadId) ?? null
   const anchorRect = state.draft?.rect ?? activeRect(store, active)
 
-  const pillPos = useAnchoredPosition(selection && !state.draft ? selection.rect : null, pillRef)
+  const pillPos = useAnchoredPosition(selection && !state.draft && !touch ? selection.rect : null, pillRef)
   const popupPos = useAnchoredPosition(anchorRect, popupRef)
 
   /* ------------------------------------------------------ selection --- */
 
   useEffect(() => {
-    if (!canCreate) return
-
     let timer: number
     function onSelectionChange() {
       clearTimeout(timer)
@@ -65,6 +70,7 @@ export function App({ store, pulseLayer, reducedMotion, canCreate }: Props) {
     }
 
     function read() {
+      if (pressed.current) return
       const sel = getSelection()
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return setSelection(null)
 
@@ -82,12 +88,22 @@ export function App({ store, pulseLayer, reducedMotion, canCreate }: Props) {
       setSelection({ anchor, rect: last })
     }
 
+    // A press on the pill that never became a click is forgotten at the next
+    // press anywhere else, and the selection is read afresh.
+    function onPointerDown(event: PointerEvent) {
+      if (!pressed.current || event.composedPath().includes(pillRef.current as EventTarget)) return
+      pressed.current = null
+      onSelectionChange()
+    }
+
     document.addEventListener('selectionchange', onSelectionChange)
+    document.addEventListener('pointerdown', onPointerDown)
     return () => {
       document.removeEventListener('selectionchange', onSelectionChange)
+      document.removeEventListener('pointerdown', onPointerDown)
       clearTimeout(timer)
     }
-  }, [store, canCreate])
+  }, [store])
 
   /* ----------------------------------------------------- highlights --- */
 
@@ -244,14 +260,18 @@ export function App({ store, pulseLayer, reducedMotion, canCreate }: Props) {
       {selection && !state.draft && (
         <button
           ref={pillRef}
-          class="pill"
-          style={pillPos ? { top: `${pillPos.top}px`, left: `${pillPos.left}px` } : { opacity: 0 }}
+          type="button"
+          class={touch ? 'pill is-docked' : 'pill'}
+          style={touch ? undefined : pillPos ? { top: `${pillPos.top}px`, left: `${pillPos.left}px` } : { opacity: 0 }}
           // mousedown would collapse the selection before click fires; the
           // anchor is already captured, but keeping the selection visible while
           // the composer opens is less jarring.
           onMouseDown={(e) => e.preventDefault()}
+          onPointerDown={() => (pressed.current = selection)}
+          onPointerCancel={() => (pressed.current = null)}
           onClick={() => {
-            store.setDraft(selection)
+            store.setDraft(pressed.current ?? selection)
+            pressed.current = null
             setSelection(null)
           }}
         >

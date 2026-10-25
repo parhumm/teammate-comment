@@ -75,7 +75,7 @@ function boot(script: Found): void {
       store={store}
       pulseLayer={pulseLayer}
       reducedMotion={prefersReducedMotion()}
-      canCreate={matchMedia('(pointer: fine)').matches}
+      touch={matchMedia('(pointer: coarse)').matches}
     />,
     root,
   )

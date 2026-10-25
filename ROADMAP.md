@@ -57,12 +57,6 @@ comments per project, with delete, would be enough.
 
 ## Then
 
-**Mobile comment creation.** Reading, replying, and resolving already work on touch, and the
-sidebar becomes a bottom sheet. What is missing is creating a selection-anchored thread,
-because the native iOS and Android selection callout cannot be suppressed and any workaround is
-brittle across Safari versions. This was the single most fragile thing in the original plan and
-deserves its own dedicated pass, not a corner of another one.
-
 **Highlight fallback for older browsers.** The CSS Custom Highlight API needs Chrome 105+,
 Safari 17.2+, Firefox 140+. Below that the widget currently loads without highlights; the
 sidebar still works. A `<span>`-splitting fallback would restore them at the cost of mutating
