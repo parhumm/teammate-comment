@@ -97,9 +97,9 @@ The script tag takes exactly one option.
 <script src="https://your-host/w/PROJECT_KEY.js" data-theme="dark"></script>
 ```
 
-Without it the widget reads the host page's computed `color-scheme`, then the reader's
-`prefers-color-scheme`. It never samples background pixels and never tries to match the host's
-palette. Theme is resolved once, at load.
+Without it the widget reads the host page's computed `color-scheme`, then the colour of the page's
+body text (dark text means a light page), then the reader's `prefers-color-scheme`. It never samples
+background pixels and never tries to match the host's palette. Theme is resolved once, at load.
 
 **Browser support.** Painted highlights need the CSS Custom Highlight API: Chrome 105+,
 Safari 17.2+, Firefox 140+. Below that the widget still loads and every thread is still
