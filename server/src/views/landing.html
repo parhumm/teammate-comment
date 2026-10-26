@@ -795,7 +795,9 @@ document.querySelectorAll('[data-copy]').forEach((button) => button.addEventList
   try { await navigator.clipboard.writeText(source.textContent) }
   catch { return getSelection().selectAllChildren(source) }
   button.textContent = 'Copied'
+  window.gtag?.('event', 'copy_example', { example: button.dataset.copy })
   setTimeout(() => { button.textContent = 'Copy' }, 1400)
 }))
+document.querySelector('video.promo').addEventListener('play', () => window.gtag?.('event', 'video_start', { video_title: 'promo' }), { once: true })
 </script>
 <script src="https://teammate.jaan.to/w/4MdCM6W2_Bgp.js"></script>
