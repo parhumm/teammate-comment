@@ -160,7 +160,7 @@ any webpage ──> widget.js ──> HTTP API ──> SQLite
 | `/w/<key>.js` | The host page. One bundle serves every project, revalidated by ETag, CORS open to every origin |
 | `/api/*` | The widget. Every request carries `?key=`, and the requesting host is matched against the project's domain pattern before anything else runs |
 | `/healthz` | Your process supervisor. Liveness only: no auth, no database, no upstream call |
-| `/` | Visitors: the landing page, a static file whose comments never leave the tab. Signed-in owners go straight to `/projects` |
+| `/` | Visitors: the landing page, a static file that runs the real widget. Signed-in owners go straight to `/projects` |
 | everything else | The owner panel: `/signin`, `/signup`, `/projects`, `/projects/:id`. Server-rendered HTML, no client JS |
 
 ```
