@@ -13,7 +13,7 @@ import {
   ownerKey,
 } from './auth.ts'
 import { normalizeDomain, parsePattern, describeMatch, hostMatches, hostFromHeader, DomainError } from './domain.ts'
-import { layout, escapeHtml } from './views/layout.ts'
+import { layout, escapeHtml, analytics } from './views/layout.ts'
 import { relativeTime, readableTime, agoPhrase } from '../../shared/time.ts'
 import { embedSnippet, MAX_NAME, MAX_MESSAGE } from '../../shared/contract.ts'
 import { threadsMarkdown } from '../../shared/markdown.ts'
@@ -29,6 +29,13 @@ const MIN_PASSWORD = 8
 
 function publicOrigin(c: { req: { url: string } }): string {
   return process.env.TC_PUBLIC_ORIGIN ?? new URL(c.req.url).origin
+}
+
+/** Names a GA event for the next page to send, so it counts only once the action has worked. */
+function track(c: Context, event: string): void {
+  if (process.env.TC_GA_ID) {
+    setCookie(c, 'tc_ev', event, { path: '/', sameSite: 'Lax', maxAge: 60, secure: process.env.NODE_ENV === 'production' })
+  }
 }
 
 /* ------------------------------------------------------------------ auth -- */
@@ -93,6 +100,7 @@ panel.post('/signup', async (c) => {
     .get(email, hashPassword(password)) as User
 
   startSession(c, user.id)
+  track(c, 'sign_up')
   // Straight to the one thing a new account exists to do.
   return c.redirect('/projects/new')
 })
@@ -108,11 +116,13 @@ panel.post('/signin', async (c) => {
   }
 
   startSession(c, user.id)
+  track(c, 'login')
   return c.redirect('/projects')
 })
 
 panel.post('/signout', (c) => {
   endSession(c)
+  track(c, 'logout')
   return c.redirect('/signin')
 })
 
@@ -148,6 +158,7 @@ app.use('/*', async (c, next) => {
 interface ProjectRow extends Project {
   threads: number
   open: number
+  last_activity: string | null
 }
 
 function projectsFor(userId: number): ProjectRow[] {
@@ -155,7 +166,8 @@ function projectsFor(userId: number): ProjectRow[] {
     .prepare(
       `SELECT p.*,
               COUNT(t.id) AS threads,
-              COALESCE(SUM(CASE WHEN t.resolved = 0 THEN 1 ELSE 0 END), 0) AS open
+              COALESCE(SUM(CASE WHEN t.resolved = 0 THEN 1 ELSE 0 END), 0) AS open,
+              MAX(t.updated_at) AS last_activity
        FROM projects p
        LEFT JOIN threads t ON t.project_id = p.id
        WHERE p.user_id = ?
@@ -174,7 +186,7 @@ app.get('/projects', (c) => {
       layout(
         `
 <h1>Projects</h1>
-<p class="lede">Create your first project to get a snippet.</p>
+<p class="lede">A project is one website. Create one and you get the line of code to paste into it.</p>
 <a class="btn" href="/projects/new">New project</a>
 `,
         { title: 'Projects', signedIn: true },
@@ -192,7 +204,13 @@ app.get('/projects', (c) => {
   <span class="row-meta">
     ${p.open > 0 ? `<span class="open-count">${p.open} open</span>` : ''}
     <span>${p.threads} thread${p.threads === 1 ? '' : 's'}</span>
-    <span>${p.first_seen_at ? 'Installed' : 'Not installed'}</span>
+    <span>${
+      p.last_activity
+        ? `<span title="${escapeHtml(readableTime(p.last_activity))}">Active ${escapeHtml(agoPhrase(p.last_activity))}</span>`
+        : p.first_seen_at
+          ? 'Installed'
+          : 'Not installed'
+    }</span>
   </span>
 </a>`,
     )
@@ -212,11 +230,8 @@ app.get('/projects', (c) => {
 <div class="rows">${rows}</div>
 
 <div class="section">
-  <div class="snippet-label">
-    <span>Snippet for ${escapeHtml(latest.name)}</span>
-    <button class="quiet" data-copy="snip-latest" type="button">Copy</button>
-  </div>
-  <div class="snippet"><code id="snip-latest">${escapeHtml(embedSnippet(origin, latest.project_key))}</code></div>
+  <div class="snippet-label">Snippet for ${escapeHtml(latest.name)}</div>
+  ${copyBox('snip-latest', embedSnippet(origin, latest.project_key))}
 </div>
 `,
       { title: 'Projects', signedIn: true },
@@ -275,6 +290,7 @@ app.post('/projects', async (c) => {
     )
     .get(user.id, name, pattern, newProjectKey()) as Project
 
+  track(c, 'create_project')
   // Straight to the snippet. Creating a project and collecting its snippet are
   // one action, not two.
   return c.redirect(`/projects/${project.id}`)
@@ -291,6 +307,18 @@ function pageLink(project: Project, url: string, label: string): string {
   const onDomain = hostMatches(project.domain_pattern, hostFromHeader(url) ?? '')
   const href = onDomain ? `${url}#tc-owner=${ownerKey(project)}` : url
   return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`
+}
+
+/** A page address as the owner scans it: the host quiet, the path that tells pages apart loud. */
+function urlLabel(url: string): string {
+  const [, host, path] = /^https?:\/\/([^/?#]+)(.*)$/i.exec(url) ?? []
+  return host ? `<span class="host">${escapeHtml(host)}</span>${escapeHtml(path || '/')}` : escapeHtml(url)
+}
+
+/** Something to copy with its Copy button inside the box. A snippet's widget URL is picked out. */
+function copyBox(id: string, text: string): string {
+  const code = escapeHtml(text).replace(/src=&quot;(.+?)&quot;/, 'src=&quot;<b>$1</b>&quot;')
+  return `<div class="snippet"><code id="${id}">${code}</code><button data-copy="${id}" type="button">Copy</button></div>`
 }
 
 function projectFor(userId: number, id: string): Project | undefined {
@@ -336,6 +364,7 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
   const installed = !!project.first_seen_at
   const match = describeMatch(parsePattern(project.domain_pattern))
 
+  // "Visit", not "Open": Open is already the column of open threads.
   const pagesSection = pages.length
     ? `
 <table>
@@ -343,86 +372,150 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
     <tr>
       <th>Page</th>
       <th class="num">Open</th>
-      <th class="num">Resolved</th>
-      <th class="num">Last activity</th>
-      <th class="num"></th>
+      <th class="num col-resolved">Resolved</th>
+      <th class="num">Updated</th>
+      <th class="num"><span class="sr-only">Link</span></th>
     </tr>
   </thead>
   <tbody>
     ${pages
       .map(
         (p) => `<tr>
-      <td><a href="${escapeHtml(listUrl(project.id, { page: p.page_url, status: 'all' }))}">${escapeHtml(p.page_url)}</a></td>
-      <td class="num">${p.open || ''}</td>
-      <td class="num">${p.resolved || ''}</td>
+      <td class="page"><a href="${escapeHtml(listUrl(project.id, { page: p.page_url, status: 'all' }))}" title="${escapeHtml(
+        p.page_url,
+      )}">${urlLabel(p.page_url)}</a></td>
+      <td class="num">${p.open ? `<span class="open-count">${p.open}</span>` : ''}</td>
+      <td class="num col-resolved">${p.resolved || ''}</td>
       <td class="num" title="${escapeHtml(readableTime(p.last_activity))}">${relativeTime(
         p.last_activity,
       )}</td>
-      <td class="num">${pageLink(project, p.page_url, 'Open')}</td>
+      <td class="num">${pageLink(project, p.page_url, 'Visit')}</td>
     </tr>`,
       )
       .join('')}
   </tbody>
 </table>`
-    : `<p class="empty">No pages yet. The snippet hasn't loaded anywhere.</p>`
+    : installed
+      ? `<p class="empty"><b>No comments yet.</b> Select some text on your site to start the first thread.</p>`
+      : `<p class="empty">No pages yet. They show up here once the snippet is on your site and someone comments.</p>`
+
+  // Installing happens in another tab, so this one watches for it rather than
+  // asking for a reload, the same way Telegram's Start does.
+  const install = installed
+    ? `<div class="status on">
+    <span class="dot"></span>
+    <span>Installed. First seen ${escapeHtml(agoPhrase(project.first_seen_at))}.</span>
+  </div>`
+    : `<div class="status listening" id="install-status" role="status">
+    <span class="dot"></span>
+    <span>Waiting for the first page view. Open a page that has the snippet and this updates on its own.</span>
+  </div>
+<script>
+(function () {
+  var timer = setInterval(function () {
+    if (document.visibilityState !== 'visible') return;
+    fetch('/projects/${project.id}/installed')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.installed) return;
+        clearInterval(timer);
+        var s = document.getElementById('install-status');
+        s.className = 'status on arrived';
+        s.lastElementChild.textContent = 'Installed just now. Select some text on your site to leave the first comment.';
+      })
+      .catch(function () {});
+  }, 4000);
+})();
+</script>`
 
   return layout(
     `
 <a class="back" href="/projects">Projects</a>
-<div class="split">
-  <h1>${escapeHtml(project.name)}</h1>
-  <form method="post" action="/projects/${project.id}/delete"
-        onsubmit="return confirm('Delete this project and every comment in it?')">
-    <button class="danger" type="submit">Delete project</button>
-  </form>
-</div>
+<h1>${escapeHtml(project.name)}</h1>
 <p class="lede"><code>${escapeHtml(project.domain_pattern)}</code> &middot; ${escapeHtml(match)}</p>
 
 <div class="section">
-  <div class="snippet-label">
-    <span>Paste this into your page</span>
-    <button class="quiet" data-copy="snip" type="button">Copy</button>
-  </div>
-  <div class="snippet"><code id="snip">${escapeHtml(embedSnippet(origin, project.project_key))}</code></div>
-  <div class="status${installed ? ' on' : ''}">
-    <span class="dot"></span>
-    <span>${
-      installed
-        ? `Installed. First seen ${escapeHtml(agoPhrase(project.first_seen_at))}.`
-        : 'Waiting for first page view'
-    }</span>
-  </div>
+  <h2>Install</h2>
+  <p class="lede">Paste this line into your site's HTML. In a shared layout or template, every page gets comments at once.</p>
+  ${copyBox('snip', embedSnippet(origin, project.project_key))}
+  ${install}
 </div>
 
-<div class="section">
-  <div class="snippet-label">
-    <span>Readers can read and comment. Only you can resolve, edit and delete: open a page from the list below, or add this to any page address once per browser. Keep it private.</span>
-    <button class="quiet" data-copy="owner" type="button">Copy</button>
-  </div>
-  <div class="snippet"><code id="owner">${escapeHtml(owner)}</code></div>
-</div>
-
-<div class="section" id="telegram">
-  <h2>${TELEGRAM_LOGO}Telegram</h2>
-  ${telegramSection(project, flags)}
-</div>
-
-<div class="section" id="slack">
-  <h2>${SLACK_LOGO}Slack</h2>
-  ${slackSection(project, flags)}
-</div>
-
-<div class="section">
+<div class="section" id="pages">
   <div class="split">
     <h2>Pages</h2>
     ${pages.length ? `<a class="quiet" href="${listUrl(project.id, { page: '', status: 'open' })}">All comments</a>` : ''}
   </div>
   ${pagesSection}
 </div>
+
+<div class="section">
+  <h2>Notifications</h2>
+  ${channel(
+    'telegram',
+    TELEGRAM_LOGO,
+    'Telegram',
+    !project.telegram_token
+      ? 'A message to you or your team chat for every new comment'
+      : project.telegram_chat_id
+        ? `Connected to ${escapeHtml(project.telegram_chat_name)}`
+        : 'One step left: press Start',
+    !!project.telegram_chat_id,
+    !!(flags.tgError || flags.sent === 'telegram' || project.telegram_error || (project.telegram_token && !project.telegram_chat_id)),
+    telegramSection(project, flags),
+  )}
+  ${channel(
+    'slack',
+    SLACK_LOGO,
+    'Slack',
+    project.slack_webhook ? 'Connected' : 'Every new comment posted to a channel',
+    !!project.slack_webhook,
+    !!(flags.slackError || flags.sent === 'slack' || project.slack_error),
+    slackSection(project, flags),
+  )}
+</div>
+
+<div class="section">
+  <h2>Moderate on your site</h2>
+  <p class="lede">On your site anyone can read and reply. To resolve, edit and delete there too, open a page from
+    <a href="#pages">Pages</a>, or add this to the end of any page address once per browser.
+    Keep it private: whoever has it can moderate.</p>
+  ${copyBox('owner', owner)}
+</div>
+
+<div class="section danger-zone">
+  <form method="post" action="/projects/${project.id}/delete"
+        onsubmit="return confirm('Delete this project and every comment in it?')">
+    <button class="danger" type="submit">Delete project</button>
+  </form>
+  <p class="hint">Every comment on every page goes with it, and the snippet stops working. This can't be undone.</p>
+</div>
 `,
     { title: project.name, signedIn: true },
   )
 }
+
+/**
+ * A notification channel as one row that opens. It starts open whenever there
+ * is something to read or do in it: an error, a test result, a pending step.
+ */
+function channel(id: string, logo: string, name: string, meta: string, connected: boolean, open: boolean, body: string): string {
+  return `
+<details class="channel" id="${id}"${open ? ' open' : ''}>
+  <summary>
+    <b>${logo}${name}</b>
+    <span class="meta">${meta}</span>
+    <span class="go"><span class="closed">${connected ? 'Manage' : 'Set up'}</span><span class="opened">Close</span></span>
+  </summary>
+  <div class="channel-body">${body}</div>
+</details>`
+}
+
+app.get('/projects/:id/installed', (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project) return c.notFound()
+  return c.json({ installed: !!project.first_seen_at })
+})
 
 /** Each service's own mark, in its own colours. Decorative: the heading already names it. */
 const TELEGRAM_LOGO = `<svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#26A5E4"/><path fill="#fff" d="M16.906 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>`
@@ -436,7 +529,6 @@ const SLACK_LOGO = `<svg class="logo" viewBox="0 0 127 127" aria-hidden="true"><
  */
 function telegramSection(project: Project, flags: PageFlags): string {
   const base = `/projects/${project.id}/telegram`
-  const botUrl = `https://t.me/${escapeHtml(project.telegram_bot)}`
   const botLink = (href: string) =>
     project.telegram_bot
       ? `<a href="${href}" target="_blank" rel="noreferrer">@${escapeHtml(project.telegram_bot)}</a>`
@@ -444,18 +536,21 @@ function telegramSection(project: Project, flags: PageFlags): string {
 
   if (!project.telegram_token) {
     return `
-  <p class="lede">Get a message the moment someone comments.</p>
   ${flags.tgError ? `<div class="error">${escapeHtml(flags.tgError)}</div>` : ''}
+  <ol class="steps">
+    <li>In Telegram, message <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a> and
+      send <code>/newbot</code>.</li>
+    <li>Give the bot any name and username. BotFather answers with a token.</li>
+    <li>Paste the token below.</li>
+  </ol>
   <form method="post" action="${base}">
     <div class="field token">
       <label for="token">Bot token</label>
       <input id="token" name="token" type="text" placeholder="123456789:AAH..." required
              autocomplete="off" spellcheck="false" autocapitalize="off"
              value="${escapeHtml(flags.token ?? '')}">
-      <p class="hint">Message <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a>,
-        send <code>/newbot</code>, and paste the token it gives you.</p>
     </div>
-    <button type="submit">Connect</button>
+    <button type="submit" data-busy="Connecting…">Connect</button>
   </form>`
   }
 
@@ -464,15 +559,15 @@ function telegramSection(project: Project, flags: PageFlags): string {
     // owner typing anything. A group gets the same line typed by hand.
     const code = telegramStartCode(project)
     return `
-  <div class="status">
+  <div class="status listening">
     <span class="dot"></span>
-    <span>Token saved. Open ${botLink(`${botUrl}?start=${code}`)} and press <b>Start</b>.
-      For a team, add the bot to a group and send <code>/start ${code}</code> there.
-      This page updates on its own.</span>
+    <span>Last step: open ${botLink(`${base}/start`)} and press <b>Start</b>.
+      For a team chat, add the bot to the group and send <code>/start ${code}</code> there instead.
+      This page updates on its own once the bot hears from you.</span>
   </div>
   ${failed('Last check', project.telegram_error, project.telegram_error_at)}
   <div class="actions">
-    <form method="post" action="${base}/check"><button class="ghost" type="submit">Check again</button></form>
+    <form method="post" action="${base}/check"><button class="ghost" type="submit" data-busy="Checking…">Check now</button></form>
     <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
   </div>
 <script>
@@ -491,7 +586,7 @@ function telegramSection(project: Project, flags: PageFlags): string {
   return `
   <div class="status on">
     <span class="dot"></span>
-    <span>Connected. Messages go to <b>${escapeHtml(project.telegram_chat_name)}</b> via ${botLink(botUrl)}.</span>
+    <span>Connected. Messages go to <b>${escapeHtml(project.telegram_chat_name)}</b> via ${botLink(`https://t.me/${escapeHtml(project.telegram_bot)}`)}.</span>
   </div>
   ${connectedFooter(base, flags.sent === 'telegram', project.telegram_error, project.telegram_error_at)}`
 }
@@ -503,9 +598,9 @@ function failed(what: string, error: string | null, at: string | null): string {
 /** A connected channel's last test or failure, then its two actions. */
 function connectedFooter(base: string, sent: boolean, error: string | null, at: string | null): string {
   return `
-  ${sent ? '<p class="hint">Test message sent.</p>' : failed('Last message', error, at)}
+  ${sent ? '<p class="hint">Test message sent. It should be there now.</p>' : failed('Last message', error, at)}
   <div class="actions">
-    <form method="post" action="${base}/test"><button class="ghost" type="submit">Send test</button></form>
+    <form method="post" action="${base}/test"><button class="ghost" type="submit" data-busy="Sending…">Send test</button></form>
     <form method="post" action="${base}/disconnect"><button class="quiet" type="submit">Disconnect</button></form>
   </div>`
 }
@@ -519,7 +614,6 @@ function slackSection(project: Project, flags: PageFlags): string {
 
   if (!project.slack_webhook) {
     return `
-  <p class="lede">Post every new comment to a Slack channel.</p>
   ${flags.slackError ? `<div class="error">${escapeHtml(flags.slackError)}</div>` : ''}
   <ol class="steps">
     <li><a href="${escapeHtml(slack.NEW_APP_URL)}" target="_blank" rel="noreferrer">Create the Slack app</a>. It opens
@@ -538,7 +632,7 @@ function slackSection(project: Project, flags: PageFlags): string {
         <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer">api.slack.com/apps</a>,
         turn on <b>Incoming Webhooks</b>, and start from step 2.</p>
     </div>
-    <button type="submit">Connect</button>
+    <button type="submit" data-busy="Connecting…">Connect</button>
   </form>`
   }
 
@@ -584,8 +678,17 @@ app.post('/projects/:id/telegram/check', async (c) => {
   if (!project) return c.notFound()
 
   const connected = await adoptChat(project, telegramStartCode(project))
+  if (connected) track(c, 'connect_telegram')
   if (c.req.header('Accept')?.includes('application/json')) return c.json({ connected })
   return c.redirect(`/projects/${project.id}#telegram`)
+})
+
+// The Start link goes through here so its code is never in a link on the page,
+// where analytics would record it as an outbound click.
+app.get('/projects/:id/telegram/start', (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project?.telegram_bot) return c.notFound()
+  return c.redirect(`https://t.me/${project.telegram_bot}?start=${telegramStartCode(project)}`)
 })
 
 app.post('/projects/:id/telegram/test', async (c) => {
@@ -634,6 +737,7 @@ app.post('/projects/:id/slack', async (c) => {
   }
 
   slack.setWebhook(project, webhook)
+  track(c, 'connect_slack')
   return c.redirect(`/projects/${project.id}#slack`)
 })
 
@@ -727,11 +831,11 @@ function commentsPage(c: Context, project: Project, error?: string): string {
     )
     return `
 <div class="section">
-  <div class="snippet-label">
-    <a class="page-url" href="${escapeHtml(listUrl(project.id, { ...filter, page: url }))}">${escapeHtml(url)}</a>
+  <div class="snippet-label page-head">
+    <a class="page-url" href="${escapeHtml(listUrl(project.id, { ...filter, page: url }))}" title="${escapeHtml(url)}">${urlLabel(url)}</a>
     <span class="tools">
-      <button class="quiet" data-copy="md-p${i}" type="button">Copy all</button>
-      ${pageLink(project, url, 'Open page')}
+      <button class="quiet" data-copy="md-p${i}" type="button">Copy as Markdown</button>
+      ${pageLink(project, url, 'View page')}
     </span>
   </div>
   <pre id="md-p${i}" hidden>${escapeHtml(md)}</pre>
@@ -739,7 +843,13 @@ function commentsPage(c: Context, project: Project, error?: string): string {
 </div>`
   })
 
-  const empty = `No ${filter.status === 'all' ? '' : `${filter.status} `}threads${filter.page ? ' on this page' : ''}.`
+  // Says why the list is empty: nothing yet, or everything handled.
+  const where = filter.page ? ' on this page' : ''
+  const empty = !all.length
+    ? `<b>No comments yet${where}.</b> Select some text on a page that has the snippet to start a thread.`
+    : filter.status === 'open'
+      ? `${CHECK}<b>All clear.</b> Every thread${where} is resolved.`
+      : `Nothing resolved${where} yet.`
 
   return layout(
     `
@@ -747,13 +857,13 @@ function commentsPage(c: Context, project: Project, error?: string): string {
 <h1>Comments</h1>
 <p class="lede">${
       filter.page
-        ? `On <code>${escapeHtml(filter.page)}</code> &middot; <a href="${escapeHtml(
+        ? `On <code>${urlLabel(filter.page)}</code> &middot; <a href="${escapeHtml(
             listUrl(project.id, { ...filter, page: '' }),
           )}">All pages</a>`
         : 'Every page in this project. Only you see commenters&rsquo; emails.'
     }</p>
 ${error ? `<div class="error">${escapeHtml(error)}</div>` : ''}
-<nav class="tabs">
+<nav class="tabs" aria-label="Threads by status">
   ${tab('open', `Open (${counts.open})`)}
   ${tab('resolved', `Resolved (${counts.resolved})`)}
   ${tab('all', `All (${counts.open + counts.resolved})`)}
@@ -763,6 +873,8 @@ ${groups.length ? groups.join('') : `<p class="empty">${empty}</p>`}
     { title: `Comments · ${project.name}`, signedIn: true },
   )
 }
+
+const CHECK = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
 function threadBlock(project: Project, t: Thread, comments: Comment[], filter: Filter, name: string): string {
   const base = `/projects/${project.id}`
@@ -813,8 +925,8 @@ function threadBlock(project: Project, t: Thread, comments: Comment[], filter: F
   <div class="byline">
     ${status}
     <span class="tools">
-      <button class="quiet" data-copy="md-t${t.id}" type="button">Copy</button>
-      ${pageLink(project, t.page_url, 'Open on page')}
+      <button class="quiet" data-copy="md-t${t.id}" type="button" title="Copy this thread as Markdown">Copy</button>
+      ${pageLink(project, t.page_url, 'View on page')}
       <form method="post" action="${base}/threads/${t.id}/resolve${escapeHtml(q)}">
         <input type="hidden" name="resolved" value="${t.resolved ? 0 : 1}">
         <button class="quiet" type="submit">${t.resolved ? 'Reopen' : 'Resolve'}</button>
@@ -825,7 +937,7 @@ function threadBlock(project: Project, t: Thread, comments: Comment[], filter: F
       </form>
     </span>
   </div>
-  <blockquote>${escapeHtml(t.selected_text)}</blockquote>
+  <blockquote><mark>${escapeHtml(t.selected_text)}</mark></blockquote>
   ${commentRows}
   <details class="reply">
     <summary class="btn ghost">Reply</summary>
@@ -875,6 +987,7 @@ app.post('/projects/:id/threads/:thread/reply', async (c) => {
     maxAge: 60 * 60 * 24 * 365,
     secure: process.env.NODE_ENV === 'production',
   })
+  track(c, 'reply')
   return backTo(c, project, thread.id)
 })
 
@@ -885,13 +998,16 @@ app.post('/projects/:id/threads/:thread/resolve', async (c) => {
   const form = await c.req.formData()
   const id = Number(c.req.param('thread'))
   const name = field(getCookie(c, NAME_COOKIE), MAX_NAME) || null
-  if (!setResolved(project.id, id, form.get('resolved') !== '0', name)) return c.notFound()
+  const resolved = form.get('resolved') !== '0'
+  if (!setResolved(project.id, id, resolved, name)) return c.notFound()
+  track(c, resolved ? 'resolve_thread' : 'reopen_thread')
   return backTo(c, project, id)
 })
 
 app.post('/projects/:id/threads/:thread/delete', (c) => {
   const project = projectFor(c.get('user').id, c.req.param('id'))
   if (!project || !removeThread(project.id, Number(c.req.param('thread')))) return c.notFound()
+  track(c, 'delete_thread')
   return backTo(c, project)
 })
 
@@ -905,21 +1021,24 @@ app.post('/projects/:id/comments/:comment/edit', async (c) => {
 
   const comment = editComment(project.id, Number(c.req.param('comment')), message)
   if (!comment) return c.notFound()
+  track(c, 'edit_comment')
   return backTo(c, project, comment.thread_id)
 })
 
 app.post('/projects/:id/comments/:comment/delete', (c) => {
   const project = projectFor(c.get('user').id, c.req.param('id'))
   if (!project || !removeComment(project.id, Number(c.req.param('comment')))) return c.notFound()
+  track(c, 'delete_comment')
   return backTo(c, project)
 })
 
 app.post('/projects/:id/delete', (c) => {
   const user = c.get('user')
-  db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(
+  const { changes } = db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(
     Number(c.req.param('id')),
     user.id,
   )
+  if (changes) track(c, 'delete_project')
   return c.redirect('/projects')
 })
 
@@ -937,7 +1056,7 @@ panel.get('/', (c) =>
   currentUser(c)
     ? c.redirect('/projects')
     : c.html(
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">${LANDING.replaceAll('https://teammate.jaan.to', publicOrigin(c))}</html>`,
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">${analytics()}${LANDING.replaceAll('https://teammate.jaan.to', publicOrigin(c))}</html>`,
       ),
 )
 

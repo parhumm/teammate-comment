@@ -164,3 +164,35 @@ test('a project is deleted only by its owner, from the panel, with everything in
   assert.equal(count('SELECT COUNT(*) AS n FROM threads WHERE id = ?', t), 0)
   assert.equal(count('SELECT COUNT(*) AS n FROM comments WHERE thread_id = ?', t), 0)
 })
+
+test('the project page watches for its own install, and only its owner can ask', async () => {
+  const fresh = project('o@acme.com', 'fresh', '*.acme.com')
+  const installed = async (cookie: string) => send(cookie, `/projects/${fresh}/installed`)
+  assert.equal((await installed(stranger)).status, 404)
+  assert.deepEqual(await (await installed(owner)).json(), { installed: false })
+  db.prepare("UPDATE projects SET first_seen_at = datetime('now') WHERE id = ?").run(fresh)
+  assert.deepEqual(await (await installed(owner)).json(), { installed: true })
+})
+
+test('analytics loads only when configured, an event waits for the action to work, and no secret rides a link', async () => {
+  assert.ok(!(await html('', '/signin')).includes('googletagmanager'))
+  process.env.TC_GA_ID = 'G-TEST'
+  try {
+    assert.ok((await html('', '/signin')).includes('gtag/js?id=G-TEST'))
+    assert.ok((await html('', '/')).includes('gtag/js?id=G-TEST'))
+
+    const wrong = await send('', '/signin', { email: 'o@acme.com', password: 'not the password' })
+    assert.equal(wrong.headers.get('set-cookie'), null)
+    const right = await send('', '/signin', { email: 'o@acme.com', password: 'correct horse' })
+    assert.match(right.headers.get('set-cookie')!, /tc_ev=login/)
+
+    db.prepare("UPDATE projects SET telegram_token = '1:x', telegram_bot = 'tcbot' WHERE id = ?").run(second)
+    const page = await html(owner, `/projects/${second}`)
+    assert.ok(page.includes(`href="/projects/${second}/telegram/start"`) && !page.includes('?start='))
+    const start = await send(owner, `/projects/${second}/telegram/start`)
+    assert.match(start.headers.get('location')!, /^https:\/\/t\.me\/tcbot\?start=\w+$/)
+    assert.equal((await send(stranger, `/projects/${second}/telegram/start`)).status, 404)
+  } finally {
+    delete process.env.TC_GA_ID
+  }
+})

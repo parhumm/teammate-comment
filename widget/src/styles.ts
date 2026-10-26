@@ -144,7 +144,7 @@ button, input, textarea { font: inherit; color: inherit; }
   align-items: baseline;
   gap: var(--tc-s2);
   font-size: 11.5px;
-  color: var(--tc-text-3);
+  color: var(--tc-text-2);
   font-variant-numeric: tabular-nums;
 }
 .byline .who { font-size: 13px; font-weight: 600; color: var(--tc-text-1); }
@@ -165,7 +165,7 @@ button, input, textarea { font: inherit; color: inherit; }
   border: 0;
   padding: 0;
   font-size: 11.5px;
-  color: var(--tc-text-3);
+  color: var(--tc-text-2);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -197,7 +197,8 @@ button, input, textarea { font: inherit; color: inherit; }
 .composer textarea { min-height: 68px; line-height: 1.45; }
 .composer input:focus, .composer textarea:focus {
   outline: none;
-  border-color: var(--tc-text-3);
+  border-color: var(--tc-text-1);
+  box-shadow: 0 0 0 1px var(--tc-text-1);
 }
 
 .row-end { display: flex; align-items: center; gap: var(--tc-s2); justify-content: flex-end; }
@@ -220,7 +221,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .btn.ghost { background: transparent; color: var(--tc-text-1); border-color: var(--tc-border); }
 
 :where(button, input, textarea, [tabindex]):focus-visible {
-  outline: var(--tc-focus-width) solid var(--tc-signal);
+  outline: var(--tc-focus-width) solid var(--tc-text-1);
   outline-offset: var(--tc-focus-offset);
 }
 
@@ -251,7 +252,7 @@ button, input, textarea { font: inherit; color: inherit; }
   color: var(--tc-signal-text);
   font-weight: 600;
 }
-.launcher.is-error { color: var(--tc-text-3); }
+.launcher.is-error { color: var(--tc-text-2); }
 
 .dot {
   width: 7px;
@@ -284,10 +285,6 @@ button, input, textarea { font: inherit; color: inherit; }
   to   { transform: none; opacity: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  @keyframes slide { from { opacity: 0; } to { opacity: 1; } }
-}
-
 .sidebar-top {
   display: flex;
   align-items: baseline;
@@ -304,7 +301,7 @@ button, input, textarea { font: inherit; color: inherit; }
   padding: var(--tc-s2) var(--tc-s4);
   border-top: 1px solid var(--tc-border-subtle);
   font-size: 11.5px;
-  color: var(--tc-text-3);
+  color: var(--tc-text-2);
 }
 .sidebar-foot a { color: inherit; text-underline-offset: 2px; }
 .sidebar-foot a:hover { color: var(--tc-text-1); }
@@ -327,7 +324,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .thread.is-active { background: var(--tc-surface-0); }
 .thread .dot { grid-row: 1; margin-top: 6px; }
 .thread .who { font-size: 13px; font-weight: 600; }
-.thread .when { font-size: 11.5px; color: var(--tc-text-3); font-variant-numeric: tabular-nums; }
+.thread .when { font-size: 11.5px; color: var(--tc-text-2); font-variant-numeric: tabular-nums; }
 .thread .head { display: flex; align-items: baseline; gap: var(--tc-s2); }
 .thread .excerpt {
   grid-column: 2;
@@ -338,20 +335,20 @@ button, input, textarea { font: inherit; color: inherit; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.thread .replies { grid-column: 2; font-size: 11.5px; color: var(--tc-text-3); margin-top: 2px; }
-.thread.is-resolved .who, .thread.is-resolved .excerpt { color: var(--tc-text-3); }
+.thread .replies { grid-column: 2; font-size: 11.5px; color: var(--tc-text-2); margin-top: 2px; }
+.thread.is-resolved .who, .thread.is-resolved .excerpt { color: var(--tc-text-2); }
 
 .group {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--tc-text-3);
+  color: var(--tc-text-2);
   padding: var(--tc-s4) var(--tc-s4) var(--tc-s2);
 }
 .group-note {
   font-size: 12px;
-  color: var(--tc-text-3);
+  color: var(--tc-text-2);
   padding: 0 var(--tc-s4) var(--tc-s3);
 }
 
@@ -378,7 +375,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .sidebar-tools > :nth-child(2) { margin-left: auto; }
 .sidebar-tools .link { font-size: 12px; }
 .link[disabled] { opacity: 0.4; cursor: default; }
-.link[disabled]:hover { color: var(--tc-text-3); }
+.link[disabled]:hover { color: var(--tc-text-2); }
 
 .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .pick {
@@ -427,6 +424,10 @@ button, input, textarea { font: inherit; color: inherit; }
   .popup { width: calc(100vw - 24px); }
   .launcher { right: 12px; bottom: 12px; }
   .pill.is-docked { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes slide { from { opacity: 0; } to { opacity: 1; } }
 }
 
 /* Coarse pointers get the 44px minimum target, independent of viewport width:

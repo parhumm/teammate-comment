@@ -57,6 +57,7 @@ Create the project with domain `localhost` and both demo pages will be allowed.
 | `TC_SECRET_FILE` | `../data/.secret` | Where the session key is generated and kept |
 | `TC_SECRET` | unset | Session key given inline, overrides the file |
 | `TC_PUBLIC_ORIGIN` | the request's own origin | Origin written into the snippet. **Required behind a proxy**, otherwise the panel emits `localhost` snippets that never load. |
+| `TC_GA_ID` | unset | GA4 measurement ID (`G-...`) for the landing page and panel, never the widget. Unset sends nothing |
 | `NODE_ENV` | unset | `production` makes the session cookie `secure` |
 | `DEMO_PORT` | `5173` | Demo static server |
 | `TC_API` | `http://localhost:8787` | Where the demo pages point their script tag |
