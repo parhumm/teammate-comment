@@ -114,6 +114,10 @@ export class Api {
     return this.send(`/comments/${commentId}`, { method: 'DELETE' })
   }
 
+  deleteThread(threadId: number): Promise<{ ok: true }> {
+    return this.send(`/threads/${threadId}`, { method: 'DELETE' })
+  }
+
   setResolved(threadId: number, resolved: boolean, name: string): Promise<{ thread: ThreadDto }> {
     return this.send(`/threads/${threadId}/resolve`, {
       method: 'POST',

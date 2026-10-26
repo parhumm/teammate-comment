@@ -1,6 +1,7 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
+import { getCookie, setCookie } from 'hono/cookie'
 import { readFileSync } from 'node:fs'
-import { db, type Project, type User } from './db.ts'
+import { db, type Project, type User, type Thread, type Comment } from './db.ts'
 import {
   hashPassword,
   verifyPassword,
@@ -14,7 +15,9 @@ import {
 import { normalizeDomain, parsePattern, describeMatch, hostMatches, hostFromHeader, DomainError } from './domain.ts'
 import { layout, escapeHtml } from './views/layout.ts'
 import { relativeTime, readableTime, agoPhrase } from '../../shared/time.ts'
-import { embedSnippet } from '../../shared/contract.ts'
+import { embedSnippet, MAX_NAME, MAX_MESSAGE } from '../../shared/contract.ts'
+import { threadsMarkdown } from '../../shared/markdown.ts'
+import { addReply, editComment, removeComment, removeThread, setResolved, threadFor, field } from './api.ts'
 import { getMe, adoptChat, deliver, esc, setBot, TelegramError, TOKEN_PATTERN } from './telegram.ts'
 import * as slack from './slack.ts'
 
@@ -117,9 +120,27 @@ panel.post('/signout', (c) => {
 
 const app = new Hono<Env>()
 
+/**
+ * Every write here rides the session cookie. SameSite=Lax already keeps it off
+ * cross-site posts, but Lax counts a sibling subdomain as the same site, so a
+ * post must also come from this host. A missing Origin is let through: Lax has
+ * that case covered, and old browsers do not always send one.
+ */
+function fromHere(c: Context): boolean {
+  const origin = c.req.header('Origin')
+  if (!origin) return true
+  try {
+    const host = new URL(origin).host
+    return host === new URL(c.req.url).host || host === new URL(publicOrigin(c)).host
+  } catch {
+    return false
+  }
+}
+
 app.use('/*', async (c, next) => {
   const user = currentUser(c)
   if (!user) return c.redirect('/signin')
+  if (c.req.method === 'POST' && !fromHere(c)) return c.text('Cross-site request refused.', 403)
   c.set('user', user)
   await next()
 })
@@ -261,6 +282,17 @@ app.post('/projects', async (c) => {
 
 const ownedProject = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?')
 
+/**
+ * A link out to a commented page. The owner key rides along only to the
+ * project's own domain, and anything that is not http(s) is shown as text.
+ */
+function pageLink(project: Project, url: string, label: string): string {
+  if (!/^https?:\/\//i.test(url)) return escapeHtml(label)
+  const onDomain = hostMatches(project.domain_pattern, hostFromHeader(url) ?? '')
+  const href = onDomain ? `${url}#tc-owner=${ownerKey(project)}` : url
+  return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`
+}
+
 function projectFor(userId: number, id: string): Project | undefined {
   return ownedProject.get(Number(id), userId) as Project | undefined
 }
@@ -301,8 +333,6 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
 
   const origin = publicOrigin(c)
   const owner = `#tc-owner=${ownerKey(project)}`
-  // The key only ever travels to the project's own domain.
-  const onDomain = (url: string) => hostMatches(project.domain_pattern, hostFromHeader(url) ?? '')
   const installed = !!project.first_seen_at
   const match = describeMatch(parsePattern(project.domain_pattern))
 
@@ -315,20 +345,20 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
       <th class="num">Open</th>
       <th class="num">Resolved</th>
       <th class="num">Last activity</th>
+      <th class="num"></th>
     </tr>
   </thead>
   <tbody>
     ${pages
       .map(
         (p) => `<tr>
-      <td><a href="${escapeHtml(p.page_url + (onDomain(p.page_url) ? owner : ''))}" target="_blank" rel="noreferrer">${escapeHtml(
-        p.page_url,
-      )}</a></td>
+      <td><a href="${escapeHtml(listUrl(project.id, { page: p.page_url, status: 'all' }))}">${escapeHtml(p.page_url)}</a></td>
       <td class="num">${p.open || ''}</td>
       <td class="num">${p.resolved || ''}</td>
       <td class="num" title="${escapeHtml(readableTime(p.last_activity))}">${relativeTime(
         p.last_activity,
       )}</td>
+      <td class="num">${pageLink(project, p.page_url, 'Open')}</td>
     </tr>`,
       )
       .join('')}
@@ -342,7 +372,7 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
 <div class="split">
   <h1>${escapeHtml(project.name)}</h1>
   <form method="post" action="/projects/${project.id}/delete"
-        onsubmit="return confirm('Delete ${escapeHtml(project.name)} and every comment in it?')">
+        onsubmit="return confirm('Delete this project and every comment in it?')">
     <button class="danger" type="submit">Delete project</button>
   </form>
 </div>
@@ -383,7 +413,10 @@ function projectPage(c: { req: { url: string } }, project: Project, flags: PageF
 </div>
 
 <div class="section">
-  <h2>Pages</h2>
+  <div class="split">
+    <h2>Pages</h2>
+    ${pages.length ? `<a class="quiet" href="${listUrl(project.id, { page: '', status: 'open' })}">All comments</a>` : ''}
+  </div>
   ${pagesSection}
 </div>
 `,
@@ -623,6 +656,262 @@ app.post('/projects/:id/slack/disconnect', (c) => {
 
   slack.setWebhook(project, null)
   return c.redirect(`/projects/${project.id}#slack`)
+})
+
+/* -------------------------------------------------------------- comments -- */
+
+/**
+ * Every thread in a project, one page or all of them, with everything the
+ * widget lets the owner do plus the one thing it cannot: the commenter's email.
+ * Plain forms that post and come back to the list as it was filtered, so the
+ * page needs no script beyond Copy.
+ */
+
+type Status = 'open' | 'resolved' | 'all'
+
+interface Filter {
+  /** One page's threads, or every page's when empty. */
+  page: string
+  status: Status
+}
+
+function filterFrom(c: Context): Filter {
+  const status = c.req.query('status')
+  return { page: c.req.query('page') ?? '', status: status === 'resolved' || status === 'all' ? status : 'open' }
+}
+
+function query({ page, status }: Filter): string {
+  const q = String(new URLSearchParams({ ...(page ? { page } : {}), ...(status !== 'open' ? { status } : {}) }))
+  return q ? `?${q}` : ''
+}
+
+function listUrl(projectId: number, filter: Filter, hash = ''): string {
+  return `/projects/${projectId}/comments${query(filter)}${hash}`
+}
+
+const NAME_COOKIE = 'tc_name'
+
+const threadsIn = db.prepare(
+  `SELECT * FROM threads
+   WHERE project_id = :project AND (:page = '' OR page_url = :page)
+   ORDER BY MAX(updated_at) OVER (PARTITION BY page_url) DESC, page_url, start_offset, id`,
+)
+const commentsIn = db.prepare(
+  `SELECT * FROM comments
+   WHERE thread_id IN (SELECT id FROM threads WHERE project_id = :project AND (:page = '' OR page_url = :page))
+   ORDER BY created_at, id`,
+)
+
+function commentsPage(c: Context, project: Project, error?: string): string {
+  const filter = filterFrom(c)
+  const scope = { project: project.id, page: filter.page }
+  // Every status in one read: the tabs count them all, the list shows one.
+  const all = threadsIn.all(scope) as unknown as Thread[]
+  const threads =
+    filter.status === 'all' ? all : all.filter((t) => !!t.resolved === (filter.status === 'resolved'))
+  const resolved = all.filter((t) => t.resolved).length
+  const counts = { open: all.length - resolved, resolved }
+  const comments = Map.groupBy(commentsIn.all(scope) as unknown as Comment[], (m) => m.thread_id)
+  const name = getCookie(c, NAME_COOKIE) ?? ''
+
+  const tab = (status: Status, label: string) =>
+    `<a href="${escapeHtml(listUrl(project.id, { ...filter, status }))}"${
+      status === filter.status ? ' aria-current="page"' : ''
+    }>${label}</a>`
+
+  const groups = [...Map.groupBy(threads, (t) => t.page_url)].map(([url, list], i) => {
+    const withComments = list.map((t) => ({ thread: t, comments: comments.get(t.id) ?? [] }))
+    const md = threadsMarkdown(
+      url,
+      withComments.map(({ thread, comments }) => ({ dto: { ...thread, resolved: !!thread.resolved, comments } })),
+    )
+    return `
+<div class="section">
+  <div class="snippet-label">
+    <a class="page-url" href="${escapeHtml(listUrl(project.id, { ...filter, page: url }))}">${escapeHtml(url)}</a>
+    <span class="tools">
+      <button class="quiet" data-copy="md-p${i}" type="button">Copy all</button>
+      ${pageLink(project, url, 'Open page')}
+    </span>
+  </div>
+  <pre id="md-p${i}" hidden>${escapeHtml(md)}</pre>
+  ${withComments.map(({ thread, comments }) => threadBlock(project, thread, comments, filter, name)).join('')}
+</div>`
+  })
+
+  const empty = `No ${filter.status === 'all' ? '' : `${filter.status} `}threads${filter.page ? ' on this page' : ''}.`
+
+  return layout(
+    `
+<a class="back" href="/projects/${project.id}">${escapeHtml(project.name)}</a>
+<h1>Comments</h1>
+<p class="lede">${
+      filter.page
+        ? `On <code>${escapeHtml(filter.page)}</code> &middot; <a href="${escapeHtml(
+            listUrl(project.id, { ...filter, page: '' }),
+          )}">All pages</a>`
+        : 'Every page in this project. Only you see commenters&rsquo; emails.'
+    }</p>
+${error ? `<div class="error">${escapeHtml(error)}</div>` : ''}
+<nav class="tabs">
+  ${tab('open', `Open (${counts.open})`)}
+  ${tab('resolved', `Resolved (${counts.resolved})`)}
+  ${tab('all', `All (${counts.open + counts.resolved})`)}
+</nav>
+${groups.length ? groups.join('') : `<p class="empty">${empty}</p>`}
+`,
+    { title: `Comments · ${project.name}`, signedIn: true },
+  )
+}
+
+function threadBlock(project: Project, t: Thread, comments: Comment[], filter: Filter, name: string): string {
+  const base = `/projects/${project.id}`
+  const q = query(filter)
+  const md = threadsMarkdown(t.page_url, [{ dto: { ...t, resolved: !!t.resolved, comments } }])
+
+  // Amber is reserved for open threads, so resolved ones say so in words.
+  const status = t.resolved
+    ? `<span class="when">Resolved${t.resolved_by_name ? ` by ${escapeHtml(t.resolved_by_name)}` : ''} ${escapeHtml(
+        agoPhrase(t.resolved_at),
+      )}</span>`
+    : '<span class="open-count">Open</span>'
+
+  const commentRows = comments
+    .map(
+      (m, i) => `
+  <div class="comment">
+    <div class="byline">
+      <b>${escapeHtml(m.name)}</b>
+      ${m.email ? `<a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a>` : ''}
+      <span class="when" title="${escapeHtml(readableTime(m.created_at))}">${relativeTime(m.created_at)}${
+        m.edited_at ? ' &middot; edited' : ''
+      }</span>
+    </div>
+    <p class="message">${escapeHtml(m.message)}</p>
+    <div class="tools">
+      <details>
+        <summary class="quiet">Edit</summary>
+        <form method="post" action="${base}/comments/${m.id}/edit${escapeHtml(q)}">
+          <textarea name="message" required maxlength="${MAX_MESSAGE}" aria-label="Edit comment">${escapeHtml(m.message)}</textarea>
+          <button type="submit">Save</button>
+        </form>
+      </details>
+      ${
+        // The root is what the highlight is about; removing it is removing the thread.
+        i === 0
+          ? ''
+          : `<form method="post" action="${base}/comments/${m.id}/delete${escapeHtml(q)}"
+            onsubmit="return confirm('Delete this comment?')"><button class="quiet" type="submit">Delete</button></form>`
+      }
+    </div>
+  </div>`,
+    )
+    .join('')
+
+  return `
+<article class="thread${t.resolved ? ' is-resolved' : ''}" id="t${t.id}">
+  <div class="byline">
+    ${status}
+    <span class="tools">
+      <button class="quiet" data-copy="md-t${t.id}" type="button">Copy</button>
+      ${pageLink(project, t.page_url, 'Open on page')}
+      <form method="post" action="${base}/threads/${t.id}/resolve${escapeHtml(q)}">
+        <input type="hidden" name="resolved" value="${t.resolved ? 0 : 1}">
+        <button class="quiet" type="submit">${t.resolved ? 'Reopen' : 'Resolve'}</button>
+      </form>
+      <form method="post" action="${base}/threads/${t.id}/delete${escapeHtml(q)}"
+            onsubmit="return confirm('Delete this thread and every comment in it?')">
+        <button class="quiet danger" type="submit">Delete</button>
+      </form>
+    </span>
+  </div>
+  <blockquote>${escapeHtml(t.selected_text)}</blockquote>
+  ${commentRows}
+  <details class="reply">
+    <summary class="btn ghost">Reply</summary>
+    <form method="post" action="${base}/threads/${t.id}/reply${escapeHtml(q)}">
+      <div class="field">
+        <label for="n${t.id}">Name</label>
+        <input id="n${t.id}" name="name" type="text" required maxlength="${MAX_NAME}" autocomplete="name"
+               value="${escapeHtml(name)}">
+      </div>
+      <div class="field">
+        <label for="m${t.id}">Reply</label>
+        <textarea id="m${t.id}" name="message" required maxlength="${MAX_MESSAGE}"></textarea>
+      </div>
+      <button type="submit">Reply</button>
+    </form>
+  </details>
+  <pre id="md-t${t.id}" hidden>${escapeHtml(md)}</pre>
+</article>`
+}
+
+app.get('/projects/:id/comments', (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project) return c.notFound()
+  return c.html(commentsPage(c, project))
+})
+
+/** Back to the list as it was filtered, at the thread that was acted on. */
+const backTo = (c: Context, project: Project, threadId?: number) =>
+  c.redirect(listUrl(project.id, filterFrom(c), threadId ? `#t${threadId}` : ''))
+
+app.post('/projects/:id/threads/:thread/reply', async (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  const thread = project && threadFor(project.id, Number(c.req.param('thread')))
+  if (!project || !thread) return c.notFound()
+
+  const form = await c.req.formData()
+  const name = field(form.get('name'), MAX_NAME)
+  const message = field(form.get('message'), MAX_MESSAGE)
+  if (!name || !message) return c.html(commentsPage(c, project, 'A reply needs a name and a message.'), 400)
+
+  addReply(project, thread, name, null, message)
+  // Remembered so the next reply is one field, not two.
+  setCookie(c, NAME_COOKIE, name, {
+    httpOnly: true,
+    sameSite: 'Lax',
+    path: '/projects',
+    maxAge: 60 * 60 * 24 * 365,
+    secure: process.env.NODE_ENV === 'production',
+  })
+  return backTo(c, project, thread.id)
+})
+
+app.post('/projects/:id/threads/:thread/resolve', async (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project) return c.notFound()
+
+  const form = await c.req.formData()
+  const id = Number(c.req.param('thread'))
+  const name = field(getCookie(c, NAME_COOKIE), MAX_NAME) || null
+  if (!setResolved(project.id, id, form.get('resolved') !== '0', name)) return c.notFound()
+  return backTo(c, project, id)
+})
+
+app.post('/projects/:id/threads/:thread/delete', (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project || !removeThread(project.id, Number(c.req.param('thread')))) return c.notFound()
+  return backTo(c, project)
+})
+
+app.post('/projects/:id/comments/:comment/edit', async (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project) return c.notFound()
+
+  const form = await c.req.formData()
+  const message = field(form.get('message'), MAX_MESSAGE)
+  if (!message) return c.html(commentsPage(c, project, 'A comment cannot be empty.'), 400)
+
+  const comment = editComment(project.id, Number(c.req.param('comment')), message)
+  if (!comment) return c.notFound()
+  return backTo(c, project, comment.thread_id)
+})
+
+app.post('/projects/:id/comments/:comment/delete', (c) => {
+  const project = projectFor(c.get('user').id, c.req.param('id'))
+  if (!project || !removeComment(project.id, Number(c.req.param('comment')))) return c.notFound()
+  return backTo(c, project)
 })
 
 app.post('/projects/:id/delete', (c) => {

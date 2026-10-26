@@ -1,35 +1,11 @@
-import type { ThreadDto } from './api.ts'
 import type { Span } from './highlights.ts'
 import { rangeFromOffsets, type TextIndex } from './anchor.ts'
 
 /**
- * What gets copied: Markdown an assistant can act on. Each thread carries where
- * on the page it points (a CSS path to the element holding the quote), the
- * exact text it was about, and every comment in order.
- *
  * Nothing here is stored. Threads are anchored to text, not elements, so the
- * path is derived at copy time from wherever the quote currently resolves.
+ * element path is derived at copy time from wherever the quote currently
+ * resolves. The Markdown itself is built in `shared/markdown.ts`.
  */
-export interface CopyThread {
-  dto: ThreadDto
-  /** CSS path of the element holding the quote; null when the text is gone. */
-  element: string | null
-}
-
-const GONE = 'not found on the current page (the text has changed)'
-
-export function threadsMarkdown(pageUrl: string, threads: CopyThread[]): string {
-  const blocks = threads.map(({ dto, element }, i) =>
-    [
-      `### Thread ${i + 1} (${dto.resolved ? 'resolved' : 'open'})`,
-      `Element: ${element ?? GONE}`,
-      `Quote: "${dto.selected_text.replace(/\s+/g, ' ').trim()}"`,
-      '',
-      ...dto.comments.map((c) => `- ${c.name}: ${c.message.trim().replace(/\n/g, '\n  ')}`),
-    ].join('\n'),
-  )
-  return `${[`## ${pageUrl}`, ...blocks].join('\n\n')}\n`
-}
 
 /** `main > section:nth-of-type(2) > p:nth-of-type(3)`, cut short at the nearest id. */
 export function elementPath(el: Element): string {

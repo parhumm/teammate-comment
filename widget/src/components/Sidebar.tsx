@@ -2,8 +2,16 @@ import { useEffect, useMemo, useRef } from 'preact/hooks'
 import type { Store, State, ThreadState } from '../store.ts'
 import { spanOf } from '../store.ts'
 import { relativeTime, readableTime } from '../../../shared/time.ts'
-import { threadsMarkdown, elementFor } from '../copy.ts'
+import { elementFor } from '../copy.ts'
+import { threadsMarkdown } from '../../../shared/markdown.ts'
 import { useCopy, CopyFallback, CopyAnnouncer } from './Copy.tsx'
+
+/** Where readers find the service. The host rides along so we know which sites send people. */
+const HOME = `https://teammate.jaan.to/?${new URLSearchParams({
+  utm_source: location.hostname,
+  utm_medium: 'widget',
+  utm_campaign: 'sidebar',
+})}`
 
 interface Props {
   store: Store
@@ -266,6 +274,13 @@ export function Sidebar({ store, state, onJump }: Props) {
             ))}
           </>
         )}
+      </div>
+
+      <div class="sidebar-foot">
+        Powered by{' '}
+        <a href={HOME} target="_blank" rel="noreferrer">
+          Teammate comments
+        </a>
       </div>
     </aside>
   )

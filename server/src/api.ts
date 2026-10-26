@@ -47,7 +47,7 @@ const sql = {
      VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   ),
   touchThread: db.prepare("UPDATE threads SET updated_at = datetime('now') WHERE id = ?"),
-  removeThread: db.prepare('DELETE FROM threads WHERE id = ?'),
+  removeThread: db.prepare('DELETE FROM threads WHERE id = ? AND project_id = ?'),
   setResolved: db.prepare(
     `UPDATE threads SET
        resolved = :resolved,
@@ -64,15 +64,16 @@ const sql = {
     `SELECT ${COMMENT} FROM comments WHERE thread_id = ? ORDER BY created_at, id`,
   ),
   ownedComment: db.prepare(
-    `SELECT c.id, c.thread_id FROM comments c JOIN threads t ON t.id = c.thread_id
+    `SELECT c.thread_id,
+       c.id = (SELECT id FROM comments WHERE thread_id = c.thread_id ORDER BY created_at, id LIMIT 1) AS root
+     FROM comments c JOIN threads t ON t.id = c.thread_id
      WHERE c.id = ? AND t.project_id = ?`,
   ),
   editComment: db.prepare(
     `UPDATE comments SET message = ?, updated_at = datetime('now'), edited_at = datetime('now')
-     WHERE id = ? RETURNING ${COMMENT}`,
+     WHERE id = ? AND thread_id IN (SELECT id FROM threads WHERE project_id = ?) RETURNING ${COMMENT}`,
   ),
   removeComment: db.prepare('DELETE FROM comments WHERE id = ?'),
-  countComments: db.prepare('SELECT COUNT(*) AS n FROM comments WHERE thread_id = ?'),
 }
 
 function bad(message: string, status = 400) {
@@ -80,7 +81,7 @@ function bad(message: string, status = 400) {
 }
 
 /** Trims and caps a user-supplied string field. */
-function field(value: unknown, max: number): string {
+export function field(value: unknown, max: number): string {
   return String(value ?? '').trim().slice(0, max)
 }
 
@@ -96,6 +97,50 @@ function notify(project: Project, thread: Thread, comment: Comment, kind: 'new' 
   const notice = telegram.noticeFor(project, thread, comment, kind)
   telegram.notify(project, notice)
   slack.notify(project, notice)
+}
+
+/*
+ * The writes the widget and the panel both make. Each one is scoped to a
+ * project, so an id from somewhere else answers "not found" rather than
+ * touching another project's thread.
+ */
+
+export function threadFor(projectId: number, threadId: number): Thread | undefined {
+  return sql.threadById.get(threadId, projectId) as Thread | undefined
+}
+
+export function addReply(project: Project, thread: Thread, name: string, from: string | null, message: string): Comment {
+  const comment = sql.insertComment.get(thread.id, name, from, message) as Comment
+  sql.touchThread.run(thread.id)
+  notify(project, thread, { ...comment, email: from }, 'reply')
+  return comment
+}
+
+export function editComment(projectId: number, commentId: number, message: string): Comment | undefined {
+  return sql.editComment.get(message, commentId, projectId) as Comment | undefined
+}
+
+/**
+ * Removing the root removes the thread: the root is what the highlight is
+ * about, so replies never outlive it. That also covers the last comment, which
+ * is always the root.
+ */
+export function removeComment(projectId: number, commentId: number): { threadDeleted: boolean } | null {
+  const row = sql.ownedComment.get(commentId, projectId) as { thread_id: number; root: number } | undefined
+  if (!row) return null
+
+  if (row.root) sql.removeThread.run(row.thread_id, projectId)
+  else sql.removeComment.run(commentId)
+  return { threadDeleted: !!row.root }
+}
+
+/** Its comments go with it, by cascade. */
+export function removeThread(projectId: number, threadId: number): boolean {
+  return sql.removeThread.run(threadId, projectId).changes > 0
+}
+
+export function setResolved(projectId: number, threadId: number, resolved: boolean, name: string | null) {
+  return sql.setResolved.get({ resolved: resolved ? 1 : 0, name, id: threadId, projectId }) as Thread | undefined
 }
 
 /**
@@ -234,7 +279,7 @@ api.post('/threads/:id/comments', async (c) => {
   const body = await c.req.json().catch(() => null)
   if (!body) return bad('Invalid body.')
 
-  const thread = sql.threadById.get(id, project.id) as Thread | undefined
+  const thread = threadFor(project.id, id)
   if (!thread) return bad('Thread not found.', 404)
 
   const name = field(body.name, MAX_NAME)
@@ -244,10 +289,7 @@ api.post('/threads/:id/comments', async (c) => {
   if (from instanceof Response) return from
   if (!message) return bad('Message is required.')
 
-  const comment = sql.insertComment.get(id, name, from, message) as Comment
-  sql.touchThread.run(id)
-  notify(project, thread, { ...comment, email: from }, 'reply')
-  return c.json({ comment }, 201)
+  return c.json({ comment: addReply(project, thread, name, from, message) }, 201)
 })
 
 api.patch('/comments/:id', async (c) => {
@@ -259,30 +301,22 @@ api.patch('/comments/:id', async (c) => {
   const message = field(body?.message, MAX_MESSAGE)
   if (!message) return bad('Message is required.')
 
-  if (!sql.ownedComment.get(id, project.id)) return bad('Comment not found.', 404)
-
-  return c.json({ comment: sql.editComment.get(message, id) as Comment })
+  const comment = editComment(project.id, id, message)
+  if (!comment) return bad('Comment not found.', 404)
+  return c.json({ comment })
 })
 
-/**
- * Removing the last comment in a thread removes the thread too, because a
- * thread with nothing in it is a highlight with no reason to exist.
- */
 api.delete('/comments/:id', (c) => {
   if (!isOwner(c)) return notOwner()
-  const project = c.get('project')
-  const id = Number(c.req.param('id'))
+  const removed = removeComment(c.get('project').id, Number(c.req.param('id')))
+  if (!removed) return bad('Comment not found.', 404)
+  return c.json({ ok: true, ...removed })
+})
 
-  const row = sql.ownedComment.get(id, project.id) as { thread_id: number } | undefined
-  if (!row) return bad('Comment not found.', 404)
-
-  sql.removeComment.run(id)
-
-  const left = sql.countComments.get(row.thread_id) as { n: number }
-  const threadDeleted = left.n === 0
-  if (threadDeleted) sql.removeThread.run(row.thread_id)
-
-  return c.json({ ok: true, threadDeleted })
+api.delete('/threads/:id', (c) => {
+  if (!isOwner(c)) return notOwner()
+  if (!removeThread(c.get('project').id, Number(c.req.param('id')))) return bad('Thread not found.', 404)
+  return c.json({ ok: true })
 })
 
 api.post('/threads/:id/resolve', async (c) => {
@@ -294,13 +328,7 @@ api.post('/threads/:id/resolve', async (c) => {
   const resolved = body?.resolved !== false
   const name = field(body?.name, MAX_NAME) || null
 
-  const thread = sql.setResolved.get({
-    resolved: resolved ? 1 : 0,
-    name,
-    id,
-    projectId: project.id,
-  }) as Thread | undefined
-
+  const thread = setResolved(project.id, id, resolved, name)
   if (!thread) return bad('Thread not found.', 404)
 
   // Every endpoint that returns a thread returns a whole one, comments

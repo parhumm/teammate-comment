@@ -84,9 +84,12 @@ On any page carrying the snippet:
 | `#tc-owner=<key>` in the URL | Signs this browser in as the project owner, then disappears from the address bar. The panel adds it to every page link |
 
 Your name is asked once and kept locally, with an optional email that only reaches the owner's
-Telegram and Slack notices, never the page. Threads take unlimited replies. The owner can
-resolve and reopen threads and edit or delete comments. Deleting the last comment in a thread
-deletes the thread, because a highlight with nothing behind it has no reason to exist.
+Telegram and Slack notices and the owner's panel, never the page. Threads take unlimited
+replies. The owner can resolve and reopen threads, edit or delete replies, and delete a whole
+thread. The first comment goes only with its thread, because it is what the highlight is about.
+
+The panel lists every thread per project, filtered by page and by open or resolved. From there
+the owner can reply, resolve, reopen, edit, delete, copy as Markdown, or open the page signed in.
 
 Comments belong to a page, not to a link: `?utm_source=x` and `#section` resolve to the same
 page as the bare URL.

@@ -295,6 +295,20 @@ export class Store {
     }
   }
 
+  async deleteThread(threadId: number): Promise<void> {
+    const previous = this.state.threads
+    this.set({
+      notice: null,
+      threads: previous.filter((t) => t.dto.id !== threadId),
+      selected: withoutId(this.state.selected, threadId),
+    })
+    try {
+      await this.api.deleteThread(threadId)
+    } catch (err) {
+      this.rollback(previous, err, "Couldn't delete that thread.")
+    }
+  }
+
   async toggleResolve(threadId: number): Promise<void> {
     const target = this.state.threads.find((t) => t.dto.id === threadId)
     if (!target) return

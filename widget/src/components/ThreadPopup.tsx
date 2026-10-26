@@ -4,7 +4,8 @@ import { spanOf } from '../store.ts'
 import type { CommentDto } from '../api.ts'
 import { relativeTime, readableTime, absoluteTime } from '../../../shared/time.ts'
 import { MAX_MESSAGE } from '../../../shared/contract.ts'
-import { threadsMarkdown, elementFor } from '../copy.ts'
+import { elementFor } from '../copy.ts'
+import { threadsMarkdown } from '../../../shared/markdown.ts'
 import { Composer } from './Composer.tsx'
 import { useCopy, CopyFallback, CopyAnnouncer } from './Copy.tsx'
 
@@ -58,9 +59,13 @@ function CommentRow({
             <button class="link" type="button" onClick={() => setEditing(true)}>
               Edit
             </button>
-            <button class="link danger" type="button" onClick={() => setConfirming(true)}>
-              Delete
-            </button>
+            {/* The root is what the highlight is about, so it goes only with
+                the thread, through the thread's own Delete. */}
+            {!isRoot && (
+              <button class="link danger" type="button" onClick={() => setConfirming(true)}>
+                Delete
+              </button>
+            )}
           </span>
         )}
       </div>
@@ -96,7 +101,7 @@ function CommentRow({
           warrant taking over the whole page. */}
       {confirming && (
         <div class="retry">
-          <span>{isRoot ? 'Delete the whole thread?' : "Delete this comment? Retry isn't possible."}</span>
+          <span>Delete this comment? Retry isn't possible.</span>
           <button
             class="link danger"
             type="button"
@@ -128,6 +133,7 @@ function CommentRow({
 export function ThreadPopup({ store, thread, name, email, owner, pending, failed }: Props) {
   const { dto } = thread
   const [replying, setReplying] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const clip = useCopy()
 
   function copy() {
@@ -166,8 +172,23 @@ export function ThreadPopup({ store, thread, name, email, owner, pending, failed
           />
         ) : clip.status === 'failed' ? (
           <CopyFallback text={clip.text} onDone={clip.dismiss} />
+        ) : deleting ? (
+          <div class="retry">
+            <span>Delete this thread and every comment in it?</span>
+            <button class="link danger" type="button" onClick={() => store.deleteThread(dto.id)}>
+              Delete
+            </button>
+            <button class="link" type="button" onClick={() => setDeleting(false)}>
+              Keep
+            </button>
+          </div>
         ) : (
           <div class="row-end">
+            {owner && (
+              <button class="link danger push" type="button" onClick={() => setDeleting(true)}>
+                Delete
+              </button>
+            )}
             {/* Markdown with the element path, for pasting into an assistant
                 that will apply the feedback to the page. */}
             <button class="btn ghost" type="button" title="Copy as Markdown" onClick={copy}>

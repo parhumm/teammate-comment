@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { threadsMarkdown } from './copy.ts'
-import type { ThreadDto } from './api.ts'
+import { threadsMarkdown } from './markdown.ts'
+import type { ThreadDto } from '../widget/src/api.ts'
 
 function thread(id: number, over: Partial<ThreadDto> = {}): ThreadDto {
   return {
@@ -48,4 +48,10 @@ Quote: "Billed annually"
   And this.
 `,
   )
+})
+
+test('without an element the line is left out, not reported as gone', () => {
+  const md = threadsMarkdown('https://acme.com/pricing', [{ dto: thread(1) }])
+  assert.ok(!md.includes('Element:'))
+  assert.ok(md.includes('### Thread 1 (open)\nQuote: "Billed annually"'))
 })

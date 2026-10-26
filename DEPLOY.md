@@ -433,7 +433,8 @@ Deliberate for a private V1. See [ROADMAP.md](ROADMAP.md).
 
 - **Signup is open.** Anyone reaching the panel can create their own account and projects. They
   cannot see or touch yours, but the login form has no rate limiting.
-- **Anyone can edit or delete any comment** within a project they can reach.
+- **The owner key is a bearer secret.** Anyone holding a `#tc-owner=` link can resolve, edit and
+  delete in that project. Page links from the panel carry it, so keep them to yourself.
 - **No password reset.** Recovery means editing the SQLite file on the VPS.
 - **Shared-suffix domains are broad.** `vercel.app` as a project domain matches every Vercel
   site, not only yours. The project key ships publicly in the snippet, so use the most specific

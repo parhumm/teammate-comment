@@ -65,7 +65,7 @@ h1 {
 label { display: block; font-size: 12px; font-weight: 500; margin-bottom: var(--tc-s1); }
 .field { margin-bottom: var(--tc-s3); }
 
-input[type=text], input[type=email], input[type=password] {
+input[type=text], input[type=email], input[type=password], textarea {
   width: 100%;
   font: inherit;
   font-size: 14px;
@@ -76,11 +76,12 @@ input[type=text], input[type=email], input[type=password] {
   padding: 9px 11px;
   transition: border-color var(--tc-fast) var(--tc-ease);
 }
-input:focus-visible, button:focus-visible, a:focus-visible {
+textarea { display: block; min-height: 72px; resize: vertical; line-height: 1.5; }
+input:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
   outline: var(--tc-focus-width) solid var(--tc-signal);
   outline-offset: var(--tc-focus-offset);
 }
-input:focus { border-color: var(--tc-text-3); outline: none; }
+input:focus, textarea:focus { border-color: var(--tc-text-3); outline: none; }
 
 .hint { font-size: 12px; color: var(--tc-text-3); margin-top: var(--tc-s1); }
 .hint code { font-family: var(--tc-mono); font-size: 11.5px; }
@@ -105,7 +106,7 @@ button.ghost, .btn.ghost {
   color: var(--tc-text-1);
   border-color: var(--tc-border);
 }
-button.quiet {
+button.quiet, .quiet {
   background: transparent;
   color: var(--tc-text-3);
   border: 0;
@@ -115,6 +116,7 @@ button.quiet {
   text-underline-offset: 2px;
 }
 button.danger { background: transparent; color: var(--tc-danger); border-color: var(--tc-border); }
+button.quiet.danger:hover { color: var(--tc-danger); }
 button.wide { width: 100%; }
 
 .error {
@@ -272,6 +274,41 @@ td a { font-family: var(--tc-mono); font-size: 12px; }
 }
 .back:hover { color: var(--tc-text-1); }
 .split { display: flex; align-items: baseline; justify-content: space-between; gap: var(--tc-s3); }
+
+/* Comments: one thread per block, hairlines between, the quote set off by a rule. */
+.tabs { display: flex; gap: var(--tc-s4); font-size: 13px; border-bottom: 1px solid var(--tc-border-subtle); }
+.tabs a { text-decoration: none; color: var(--tc-text-3); padding-bottom: var(--tc-s2); margin-bottom: -1px; }
+.tabs a:hover { color: var(--tc-text-1); }
+.tabs a[aria-current] { color: var(--tc-text-1); font-weight: 500; border-bottom: 1.5px solid var(--tc-text-1); }
+.page-url { font-family: var(--tc-mono); font-size: 12px; overflow-wrap: anywhere; }
+.tools { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--tc-s3); margin-left: auto; }
+.tools form { margin: 0; }
+.tools details[open] { flex-basis: 100%; }
+.tools details form { margin-top: var(--tc-s2); display: grid; gap: var(--tc-s2); justify-items: start; }
+summary { cursor: pointer; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+.thread { padding: var(--tc-s3) 0 var(--tc-s4); border-top: 1px solid var(--tc-border-subtle); }
+.thread .byline { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--tc-s2); font-size: 12px; }
+.thread .byline b { font-size: 13px; font-weight: 600; }
+.thread .byline a { color: var(--tc-text-2); }
+.when { color: var(--tc-text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.thread blockquote {
+  margin: var(--tc-s2) 0 var(--tc-s3);
+  padding-left: var(--tc-s3);
+  border-left: 2px solid var(--tc-border);
+  color: var(--tc-text-2);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.thread.is-resolved blockquote, .thread.is-resolved .message { color: var(--tc-text-3); }
+.comment { margin-top: var(--tc-s3); }
+.comment .tools { margin-left: 0; margin-top: var(--tc-s1); }
+.message { margin: var(--tc-s1) 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; }
+.reply { margin-top: var(--tc-s3); }
+.reply summary { font-size: 13px; padding: 6px 12px; }
+.reply[open] summary { display: none; }
+.reply form { max-width: 520px; }
 
 @media (max-width: 560px) {
   .row { flex-wrap: wrap; }

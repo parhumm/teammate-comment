@@ -201,6 +201,8 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 
 .row-end { display: flex; align-items: center; gap: var(--tc-s2); justify-content: flex-end; }
+/* Destructive, so it sits apart from the actions people reach for. */
+.row-end .push { margin-right: auto; }
 
 .btn {
   border: 1px solid transparent;
@@ -297,6 +299,15 @@ button, input, textarea { font: inherit; color: inherit; }
 .sidebar-top .link { margin-left: auto; }
 
 .sidebar-scroll { overflow-y: auto; flex: 1; }
+
+.sidebar-foot {
+  padding: var(--tc-s2) var(--tc-s4);
+  border-top: 1px solid var(--tc-border-subtle);
+  font-size: 11.5px;
+  color: var(--tc-text-3);
+}
+.sidebar-foot a { color: inherit; text-underline-offset: 2px; }
+.sidebar-foot a:hover { color: var(--tc-text-1); }
 
 /* Hairlines and whitespace, never cards. A card per reply inside a card per
    thread is the obvious wrong answer. */
@@ -424,6 +435,8 @@ button, input, textarea { font: inherit; color: inherit; }
   .launcher { height: 44px; padding: 0 16px; }
   .link { padding: 6px 0; }
   .btn { padding: 10px 14px; }
+  /* No hover to reveal them on touch. */
+  .byline .actions { opacity: 1; }
   /* Below 16px iOS zooms the whole page into a focused field, which throws the
      composer off screen. */
   .composer input, .composer textarea { font-size: 16px; }
