@@ -53,7 +53,7 @@ export function resolveTheme(script: HTMLScriptElement | null): Theme {
 export function lightnessOf(color: string): number | null {
   const m = /^([a-z]+)\(\s*(?:[a-z][a-z0-9-]*\s+)?(.*)\)$/i.exec(color.trim())
   if (!m) return null
-  const n = m[2].match(/-?\d*\.?\d+(?:e[-+]?\d+)?%?/gi) ?? []
+  const n: string[] = m[2].match(/-?\d*\.?\d+(?:e[-+]?\d+)?%?/gi) ?? []
   if (n.length < 3) return null
   const num = (s: string, scale: number) => (s.endsWith('%') ? Number(s.slice(0, -1)) / 100 : Number(s) / scale)
   const luma = (scale: number) => 0.299 * num(n[0], scale) + 0.587 * num(n[1], scale) + 0.114 * num(n[2], scale)
